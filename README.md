@@ -45,6 +45,8 @@ The live app at `library.wpkn.org` runs from a clone of this repo at
 Deploys are manual by design — there's no CI, so nothing goes live without
 someone explicitly pulling and restarting.
 
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ## Status
 
 Microsoft Access remains the authoritative source of truth while the MySQL
