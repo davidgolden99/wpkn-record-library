@@ -30,6 +30,21 @@ Requires a local MySQL instance with the `wpkn_library` schema loaded (see
 expects). Connection credentials are read from `WPKN_DB_*` env vars — there
 are no working credentials in this repo.
 
+## Deploying
+
+The live app at `library.wpkn.org` runs from a clone of this repo at
+`/opt/wpkn-record-library/` on the rack server, with the systemd unit's
+`WorkingDirectory` pointing at `wpkn_flask/` inside it. To deploy a change:
+
+1. Push to `main` here.
+2. SSH into the server (`ssh wpknadmin@192.168.4.2`).
+3. Run `/opt/wpkn-record-library/deploy.sh` — pulls the latest `main` and
+   restarts the `wpkn-library` service. No GitHub credentials needed
+   (public repo).
+
+Deploys are manual by design — there's no CI, so nothing goes live without
+someone explicitly pulling and restarting.
+
 ## Status
 
 Microsoft Access remains the authoritative source of truth while the MySQL
