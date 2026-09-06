@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, redirect, url_for, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -5,6 +6,7 @@ from functools import wraps
 import mysql.connector
 import os
 from datetime import date
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "wpkn-library-secret-2026")
@@ -51,7 +53,7 @@ def role_required(*roles):
 def get_db():
     return mysql.connector.connect(
         host=os.environ.get("WPKN_DB_HOST", "localhost"),
-        user=os.environ.get("WPKN_DB_USER", "root"),
+        user=os.environ.get("WPKN_DB_USER", "wpkn_app"),
         password=os.environ.get("WPKN_DB_PASSWORD", "changeme"),
         database=os.environ.get("WPKN_DB_NAME", "wpkn_library")
     )
