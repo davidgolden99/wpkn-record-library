@@ -11,9 +11,10 @@ login; Data Entry, Librarian, and Administrator roles require authentication
 ## Structure
 
 - `wpkn_flask/` — the Flask app (`app.py`), templates, and static assets.
-- `migration/` — scripts used to clean and load the original Access export
-  into MySQL (`clean_recordlibrary.py`), plus reference SQL queries mirroring
-  the app's search logic (`wpkn_search_queries.sql`).
+- `migration/` — the MySQL schema (`schema.sql`), scripts used to clean and
+  load the original Access export into MySQL (`clean_recordlibrary.py`), and
+  reference SQL queries mirroring the app's search logic
+  (`wpkn_search_queries.sql`).
 
 ## Running locally
 
