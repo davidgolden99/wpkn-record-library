@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [v1.2] - 2026-09-06
 
 ### Added
 - MySQL schema (`migration/schema.sql`) — `CREATE TABLE` statements only, no
