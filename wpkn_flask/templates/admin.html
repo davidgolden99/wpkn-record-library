@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>WPKN 89.5 FM Record Library</h1>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+            <a href="/entry" class="nav-btn">Data Entry</a>
+            <a href="/edit" class="nav-btn">Edit Record</a>
+            <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="/logout" class="nav-btn">Log Out</a>
+        </nav>
+    </header>
+    <main>
+        <h2>User Management</h2>
+
+        {% if message %}
+        <div class="entry-message {{ message_type }}">{{ message }}</div>
+        {% endif %}
+
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.Username }}</td>
+                    <td>{{ u.Role }}</td>
+                    <td class="action-cell">
+                        <form method="POST" action="/admin" style="display:inline;">
+                            <input type="hidden" name="action" value="load_edit">
+                            <input type="hidden" name="user_id" value="{{ u.ID }}">
+                            <button type="submit" class="table-btn">Edit</button>
+                        </form>
+                        {% if u.ID != current_user.id %}
+                        <form method="POST" action="/admin" style="display:inline;"
+                              onsubmit="return confirm('Delete user {{ u.Username }}?')">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="user_id" value="{{ u.ID }}">
+                            <button type="submit" class="table-btn delete">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="entry-grid" style="margin-top:28px;">
+            {% if edit_user %}
+            <h3 style="margin:0 0 4px; color:#1F3864;">Edit User</h3>
+            <form method="POST" action="/admin">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="user_id" value="{{ edit_user.ID }}">
+                <div class="entry-row">
+                    <div class="field">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username"
+                               value="{{ edit_user.Username }}" required autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="role">Role</label>
+                        <select id="role" name="role">
+                            <option value="Admin"     {% if edit_user.Role == 'Admin'     %}selected{% endif %}>Admin</option>
+                            <option value="Librarian" {% if edit_user.Role == 'Librarian' %}selected{% endif %}>Librarian</option>
+                            <option value="Entry"     {% if edit_user.Role == 'Entry'     %}selected{% endif %}>Entry</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="entry-row" style="margin-top:8px;">
+                    <div class="field">
+                        <label for="password">New Password <span style="font-weight:normal; color:#666;">(leave blank to keep current)</span></label>
+                        <input type="password" id="password" name="password" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="entry-actions" style="margin-top:16px;">
+                    <button type="submit" class="primary-btn">Save Changes</button>
+                    <a href="/admin" class="secondary-btn-link">Cancel</a>
+                </div>
+            </form>
+            {% else %}
+            <h3 style="margin:0 0 4px; color:#1F3864;">Add New User</h3>
+            <form method="POST" action="/admin">
+                <input type="hidden" name="action" value="add">
+                <div class="entry-row">
+                    <div class="field">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="role">Role</label>
+                        <select id="role" name="role">
+                            <option value="Entry">Entry</option>
+                            <option value="Librarian">Librarian</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="entry-actions" style="margin-top:16px;">
+                    <button type="submit" class="primary-btn">Add User</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

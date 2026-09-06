@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — Bulk Edit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>WPKN 89.5 FM Record Library</h1>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+            <a href="/entry" class="nav-btn">Data Entry</a>
+            <a href="/edit" class="nav-btn">Edit Record</a>
+            <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
+            {% if current_user.role == 'Admin' %}
+            <a href="/admin" class="nav-btn">Admin</a>
+            {% endif %}
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="/logout" class="nav-btn">Log Out</a>
+        </nav>
+    </header>
+    <main>
+        <h2>Bulk Edit by Artist</h2>
+
+        {% if message %}
+        <div class="entry-message {{ message_type }}">{{ message }}</div>
+        {% endif %}
+
+        <form method="POST" action="/bulk_edit">
+            <input type="hidden" name="action" value="search">
+            <div class="search-panel">
+                <div class="field">
+                    <label for="artist">Artist (exact match)</label>
+                    <input type="text" id="artist" name="artist" value="{{ artist }}" autocomplete="off">
+                </div>
+                <div class="field field-btn">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="primary-btn">Find Records</button>
+                </div>
+            </div>
+        </form>
+
+        <p>Matches records in any Status (Available, Missing, Deleted, etc.) — not just Available records shown in Search.</p>
+
+        {% if records %}
+        <form method="POST" action="/bulk_edit"
+              onsubmit="return confirm('Apply Genre/Style to the selected records? This cannot be undone.');">
+            <input type="hidden" name="action" value="apply">
+            <input type="hidden" name="artist" value="{{ artist }}">
+
+            <p>{{ records|length }} record(s) found for "{{ artist }}"</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:30px;"><input type="checkbox" id="select-all" checked></th>
+                        <th>Call No.</th>
+                        <th>Title</th>
+                        <th>Genre</th>
+                        <th>Style</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                    <tr>
+                        <td><input type="checkbox" name="record_ids" value="{{ r.ID }}" class="row-check" checked></td>
+                        <td>{{ r.CallNumber or '—' }}</td>
+                        <td>{{ r.Title }}</td>
+                        <td>{{ r.Genre or '' }}</td>
+                        <td>{{ r.Style or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="entry-grid" style="max-width:480px;">
+                <div class="entry-row">
+                    <div class="field">
+                        <label for="genre">Genre</label>
+                        <select id="genre" name="genre">
+                            <option value="">(Leave unchanged)</option>
+                            {% for g in genres %}
+                            <option value="{{ g }}">{{ g }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="style">Style</label>
+                        <input type="text" id="style" name="style" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+
+            <div class="entry-actions">
+                <button type="submit" class="primary-btn">Apply to Selected</button>
+            </div>
+        </form>
+        {% endif %}
+    </main>
+
+    <script>
+        var selectAll = document.getElementById('select-all');
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                document.querySelectorAll('.row-check').forEach(function (cb) {
+                    cb.checked = selectAll.checked;
+                });
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — Log In</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>WPKN 89.5 FM Record Library</h1>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+        </nav>
+    </header>
+    <main>
+        <div class="login-card">
+            <h2>Log In</h2>
+            {% if error %}
+            <div class="entry-message error">{{ error }}</div>
+            {% endif %}
+            <form method="POST" action="/login">
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" autofocus autocomplete="username">
+                </div>
+                <div class="field" style="margin-top:12px;">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" autocomplete="current-password">
+                </div>
+                <button type="submit" class="primary-btn" style="margin-top:20px; width:100%;">Log In</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
