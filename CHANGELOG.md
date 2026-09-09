@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## [v1.3] - unreleased
+
+Batched for the programmer-feedback window; target deploy ~2026-09-20.
+
+### Added
+- Edit page: by-artist lookup for records that can't be found by Library
+  Number. Choosing **DM** in the "Media Type" box swaps the Library Number
+  field for an **Artist** field; the search runs `Artist LIKE` across all
+  media types (so mis-coded records surface too) and returns a pick-list
+  with an Edit button per row. Previously DM records — which show a blank
+  Library Number — and any record with a NULL `LibraryNumber` were
+  unreachable for editing.
+
+### Fixed
+- Edit page: the read-only Library Number box rendered the literal string
+  "None" for records with no `LibraryNumber` (all DM records); now blank.
+
 ## [v1.2] - 2026-09-06
 
 ### Added
