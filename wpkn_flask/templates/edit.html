@@ -32,7 +32,7 @@
             <div class="search-panel">
                 <div class="field">
                     <label for="search_media_type">Media Type</label>
-                    <select id="search_media_type" name="search_media_type">
+                    <select id="search_media_type" name="search_media_type" onchange="toggleEditLookup()">
                         <option value="">(Select)</option>
                         {% for mt in media_types %}
                         <option value="{{ mt.ID }}"
@@ -42,10 +42,15 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="field">
+                <div class="field" id="lookup-by-number">
                     <label for="search_library_number">Library Number</label>
                     <input type="number" id="search_library_number" name="search_library_number"
                            value="{{ search_library_number }}" min="1" style="width:120px;">
+                </div>
+                <div class="field" id="lookup-by-artist" style="display:none;">
+                    <label for="search_artist">Artist <span class="required" style="font-weight:normal;">(Digital — no library number)</span></label>
+                    <input type="text" id="search_artist" name="search_artist"
+                           value="{{ search_artist }}" autocomplete="off" style="width:240px;">
                 </div>
                 <div class="field field-btn">
                     <label>&nbsp;</label>
@@ -53,6 +58,42 @@
                 </div>
             </div>
         </form>
+
+        {% if artist_matches %}
+        <div class="lookup-results">
+            <p>{{ artist_matches|length }} record(s) matching &ldquo;{{ search_artist }}&rdquo;{% if artist_matches|length == 200 %} (showing first 200 — narrow your search){% endif %} — pick one to edit:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Artist</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Call No.</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in artist_matches %}
+                    <tr>
+                        <td>{{ m.Artist }}</td>
+                        <td>{{ m.Title }}</td>
+                        <td>{{ m.Media }}</td>
+                        <td>{{ m.CallNumber or '—' }}</td>
+                        <td>{{ m.StatusName or '' }}</td>
+                        <td>
+                            <form method="POST" action="/edit" style="margin:0;">
+                                <input type="hidden" name="action" value="search">
+                                <input type="hidden" name="record_id" value="{{ m.ID }}">
+                                <button type="submit" class="primary-btn">Edit</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
         {% if record %}
         <form method="POST" action="/edit">
@@ -64,7 +105,7 @@
                 <div class="entry-row">
                     <div class="field">
                         <label>Library Number</label>
-                        <input type="text" value="{{ record.LibraryNumber }}" class="readonly-field" readonly>
+                        <input type="text" value="{{ record.LibraryNumber or '' }}" class="readonly-field" readonly>
                     </div>
                     <div class="field">
                         <label for="media_type">Media Type</label>
@@ -178,6 +219,17 @@
     </main>
 
     <script>
+        var DM_MEDIA_ID = "{{ dm_media_id }}";
+        function toggleEditLookup() {
+            var sel = document.getElementById('search_media_type');
+            var isDM = DM_MEDIA_ID !== "" && sel && sel.value === DM_MEDIA_ID;
+            var byNumber = document.getElementById('lookup-by-number');
+            var byArtist = document.getElementById('lookup-by-artist');
+            if (byNumber) byNumber.style.display = isDM ? 'none' : '';
+            if (byArtist) byArtist.style.display = isDM ? '' : 'none';
+        }
+        toggleEditLookup();
+
         var releaseDateEl = document.getElementById('release_date');
         if (releaseDateEl) {
             releaseDateEl.addEventListener('change', function () {

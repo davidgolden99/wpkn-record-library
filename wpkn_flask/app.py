@@ -117,6 +117,28 @@ def fetch_record_by_id(record_id):
     db.close()
     return record
 
+def fetch_edit_matches_by_artist(artist):
+    """Records whose Artist contains `artist`, for the Edit page's by-artist
+    lookup — the way to reach DM records and any record with no LibraryNumber."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT r.ID, r.LibraryNumber, r.Artist, r.Title,
+               mt.Media, s.Status AS StatusName,
+               CASE WHEN mt.Media = 'DM' OR r.LibraryNumber IS NULL THEN NULL
+                    ELSE CONCAT(mt.Media, '-', r.LibraryNumber) END AS CallNumber
+        FROM RecordLibrary r
+        JOIN MediaType mt ON r.MediaType = mt.ID
+        LEFT JOIN `Status` s ON r.Status = s.ID
+        WHERE r.Artist LIKE %s
+        ORDER BY r.Artist, r.Title
+        LIMIT 200
+    """, ("%" + artist + "%",))
+    rows = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return rows
+
 def init_db():
     db = get_db()
     cursor = db.cursor()
@@ -434,17 +456,36 @@ def edit():
     genres      = get_genres()
     media_types = get_media_types()
     statuses    = get_statuses()
+    dm_media_id = next((str(mt["ID"]) for mt in media_types if mt["Media"] == "DM"), "")
     record      = None
     message     = None
     message_type = None
     search_media_type      = request.form.get("search_media_type", "")
     search_library_number  = request.form.get("search_library_number", "").strip()
+    search_artist          = request.form.get("search_artist", "").strip()
+    artist_matches         = []
 
     if request.method == "POST":
         action = request.form.get("action", "")
 
         if action == "search":
-            if search_media_type and search_library_number:
+            picked_id = request.form.get("record_id", "").strip()
+            if picked_id:
+                # Chosen from the by-artist match list — how DM records and any
+                # record with no LibraryNumber get opened for editing.
+                record = fetch_record_by_id(picked_id)
+                if record:
+                    search_media_type     = str(record["MediaType"])
+                    search_library_number = str(record["LibraryNumber"] or "")
+                else:
+                    message = "That record could no longer be found."
+                    message_type = "error"
+            elif search_artist:
+                artist_matches = fetch_edit_matches_by_artist(search_artist)
+                if not artist_matches:
+                    message = f"No records found for an artist matching '{search_artist}'."
+                    message_type = "error"
+            elif search_media_type and search_library_number:
                 db = get_db()
                 cursor = db.cursor(dictionary=True)
                 cursor.execute("""
@@ -459,6 +500,9 @@ def edit():
                 if not record:
                     message = f"No record found for library number {search_library_number}."
                     message_type = "error"
+            else:
+                message = "Enter a Library Number, or pick Digital (DM) and search by Artist."
+                message_type = "error"
 
         elif action == "update":
             record_id = request.form.get("record_id")
@@ -502,7 +546,7 @@ def edit():
             record = fetch_record_by_id(record_id)
             if record:
                 search_media_type     = str(record["MediaType"])
-                search_library_number = str(record["LibraryNumber"])
+                search_library_number = str(record["LibraryNumber"] or "")
 
         elif action == "delete":
             record_id = request.form.get("record_id")
@@ -523,7 +567,9 @@ def edit():
                            genres=genres, media_types=media_types, statuses=statuses,
                            record=record, message=message, message_type=message_type,
                            search_media_type=search_media_type,
-                           search_library_number=search_library_number)
+                           search_library_number=search_library_number,
+                           search_artist=search_artist, artist_matches=artist_matches,
+                           dm_media_id=dm_media_id)
 
 
 # ── Bulk Edit by Artist ────────────────────────────────────────────────────────
