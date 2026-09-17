@@ -11,11 +11,14 @@
         <h1>WPKN 89.5 FM Record Library</h1>
         <nav>
             {% if current_user.is_authenticated %}
+                {% if current_user.role in ('Entry', 'Librarian', 'Admin') %}
                 <a href="/entry" class="nav-btn">Data Entry</a>
+                {% endif %}
                 {% if current_user.role in ('Librarian', 'Admin') %}
                 <a href="/edit" class="nav-btn">Edit Record</a>
                 <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
                 {% endif %}
+                <a href="/restore" class="nav-btn">Restore Deleted</a>
                 {% if current_user.role == 'Admin' %}
                 <a href="/admin" class="nav-btn">Admin</a>
                 {% endif %}

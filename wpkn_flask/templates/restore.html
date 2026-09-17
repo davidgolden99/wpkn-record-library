@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — Restore Deleted</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>WPKN 89.5 FM Record Library</h1>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+            {% if current_user.role in ('Entry', 'Librarian', 'Admin') %}
+            <a href="/entry" class="nav-btn">Data Entry</a>
+            {% endif %}
+            {% if current_user.role in ('Librarian', 'Admin') %}
+            <a href="/edit" class="nav-btn">Edit Record</a>
+            <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
+            {% endif %}
+            <a href="/restore" class="nav-btn">Restore Deleted</a>
+            {% if current_user.role == 'Admin' %}
+            <a href="/admin" class="nav-btn">Admin</a>
+            {% endif %}
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="/logout" class="nav-btn">Log Out</a>
+        </nav>
+    </header>
+    <main>
+        <h2>Restore Deleted Record</h2>
+        <p>Find a record marked <strong>Deleted</strong> and change it back to <strong>Available</strong>. No other fields can be changed here — use Edit Record for that.</p>
+
+        {% if message %}
+        <div class="entry-message {{ message_type }}">{{ message }}</div>
+        {% endif %}
+
+        <form method="POST" action="/restore">
+            <input type="hidden" name="action" value="search">
+            <div class="search-panel">
+                <div class="field">
+                    <label for="search_media_type">Media Type</label>
+                    <select id="search_media_type" name="search_media_type" onchange="toggleRestoreLookup()">
+                        <option value="">(Select)</option>
+                        {% for mt in media_types %}
+                        <option value="{{ mt.ID }}"
+                            {% if search_media_type == mt.ID|string %}selected{% endif %}>
+                            {{ mt.Media }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field" id="lookup-by-number">
+                    <label for="search_library_number">Library Number</label>
+                    <input type="number" id="search_library_number" name="search_library_number"
+                           value="{{ search_library_number }}" min="1" style="width:120px;">
+                </div>
+                <div class="field" id="lookup-by-artist" style="display:none;">
+                    <label for="search_artist">Artist <span class="required" style="font-weight:normal;">(Digital — no library number)</span></label>
+                    <input type="text" id="search_artist" name="search_artist"
+                           value="{{ search_artist }}" autocomplete="off" style="width:240px;">
+                </div>
+                <div class="field field-btn">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="primary-btn">Find Deleted Record</button>
+                </div>
+            </div>
+        </form>
+
+        {% if artist_matches %}
+        <div class="lookup-results">
+            <p>{{ artist_matches|length }} Deleted record(s) matching &ldquo;{{ search_artist }}&rdquo;{% if artist_matches|length == 200 %} (showing first 200 — narrow your search){% endif %} — pick one to restore:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Artist</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Call No.</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in artist_matches %}
+                    <tr>
+                        <td>{{ m.Artist }}</td>
+                        <td>{{ m.Title }}</td>
+                        <td>{{ m.Media }}</td>
+                        <td>{{ m.CallNumber or '—' }}</td>
+                        <td>
+                            <form method="POST" action="/restore" style="margin:0;">
+                                <input type="hidden" name="action" value="search">
+                                <input type="hidden" name="record_id" value="{{ m.ID }}">
+                                <button type="submit" class="primary-btn">Select</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if record %}
+        <div class="entry-grid">
+            <div class="entry-row">
+                <div class="field">
+                    <label>Library Number</label>
+                    <input type="text" value="{{ record.LibraryNumber or '' }}" class="readonly-field" readonly>
+                </div>
+                <div class="field">
+                    <label>Media Type</label>
+                    <input type="text"
+                           value="{% for mt in media_types %}{% if mt.ID == record.MediaType %}{{ mt.Media }}{% endif %}{% endfor %}"
+                           class="readonly-field" readonly>
+                </div>
+                <div class="field">
+                    <label>Current Status</label>
+                    <input type="text" value="Deleted" class="readonly-field" readonly>
+                </div>
+            </div>
+            <div class="entry-row full-width">
+                <div class="field">
+                    <label>Artist</label>
+                    <input type="text" value="{{ record.Artist }}" class="readonly-field" readonly>
+                </div>
+            </div>
+            <div class="entry-row full-width">
+                <div class="field">
+                    <label>Title</label>
+                    <input type="text" value="{{ record.Title }}" class="readonly-field" readonly>
+                </div>
+            </div>
+            <div class="entry-row">
+                <div class="field">
+                    <label>Label</label>
+                    <input type="text" value="{{ record.Label or '' }}" class="readonly-field" readonly>
+                </div>
+                <div class="field">
+                    <label>Genre</label>
+                    <input type="text" value="{{ record.Genre or '' }}" class="readonly-field" readonly>
+                </div>
+            </div>
+            <div class="entry-row">
+                <div class="field">
+                    <label>Release Year</label>
+                    <input type="text" value="{{ record.ReleaseYear or '' }}" class="readonly-field" readonly>
+                </div>
+                <div class="field">
+                    <label>Section</label>
+                    <input type="text" value="{{ record.Section or '' }}" class="readonly-field" readonly>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" action="/restore"
+              onsubmit="return confirm('Restore this record to Available?');">
+            <input type="hidden" name="action" value="restore">
+            <input type="hidden" name="record_id" value="{{ record.ID }}">
+            <div class="entry-actions">
+                <button type="submit" class="primary-btn">Restore to Available</button>
+                <a href="/restore" class="secondary-btn-link">Cancel</a>
+            </div>
+        </form>
+        {% endif %}
+    </main>
+
+    <script>
+        var DM_MEDIA_ID = "{{ dm_media_id }}";
+        function toggleRestoreLookup() {
+            var sel = document.getElementById('search_media_type');
+            var isDM = DM_MEDIA_ID !== "" && sel && sel.value === DM_MEDIA_ID;
+            var byNumber = document.getElementById('lookup-by-number');
+            var byArtist = document.getElementById('lookup-by-artist');
+            if (byNumber) byNumber.style.display = isDM ? 'none' : '';
+            if (byArtist) byArtist.style.display = isDM ? '' : 'none';
+        }
+        toggleRestoreLookup();
+    </script>
+</body>
+</html>

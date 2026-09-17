@@ -14,10 +14,40 @@ Batched for the programmer-feedback window; target deploy ~2026-09-20.
   with an Edit button per row. Previously DM records — which show a blank
   Library Number — and any record with a NULL `LibraryNumber` were
   unreachable for editing.
+- Add Record form now auto-derives `Section` on insert from `MediaType` +
+  `LibraryNumber` via the `Sections` range table, instead of leaving it
+  blank. No new field on the form — kept intentionally minimal.
+- New **Restore Deleted** screen (`/restore`): finds a record with
+  `Status = Deleted` (by Library Number, or by Artist for DM/no-number
+  records) and offers exactly one action — restore it to `Available`.
+  Nothing else about the record is editable there.
+- New dedicated **Restore** role: a user with this role can reach only
+  `/restore` (plus public Search) — not Add Record, Edit, Bulk Edit, or
+  Admin — so restore-only access can be granted without bundling in the
+  ability to add or edit records. Existing `Entry` accounts also keep
+  access to `/restore`.
+- Bulk Edit: new **Refresh Section Data (CD)** button. Fills in `Section`
+  for `Available` CD records whose `Section` is currently blank, using the
+  same `Sections` range-match as Add Record. Never overwrites a `Section`
+  that's already set, never touches LP/DM/DV, and never touches non-
+  `Available` records.
 
 ### Fixed
 - Edit page: the read-only Library Number box rendered the literal string
   "None" for records with no `LibraryNumber` (all DM records); now blank.
+- Search page and the new Restore Deleted page showed a "Data Entry" nav
+  link to every logged-in user regardless of role, which 403'd for
+  `Restore`-role users; now shown only to roles that can actually use it.
+
+### Deploy notes
+- **Required before this version's `Restore` role can be assigned to
+  anyone:** `Users.Role` is a MySQL `ENUM`, not free text. Run on the
+  server's `wpkn_library` database before or immediately after deploying:
+  ```sql
+  ALTER TABLE Users MODIFY Role ENUM('Admin','Librarian','Entry','Restore') NOT NULL;
+  ```
+  `init_db()` only runs `CREATE TABLE IF NOT EXISTS`, so it will not alter
+  the existing production table on its own.
 
 ## [v1.2] - 2026-09-06
 

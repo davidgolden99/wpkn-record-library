@@ -117,6 +117,28 @@ def fetch_record_by_id(record_id):
     db.close()
     return record
 
+def fetch_deleted_matches_by_artist(artist):
+    """Deleted (Status=5) records whose Artist contains `artist`, for the
+    Restore page's by-artist lookup — the way to reach DM records and any
+    record with no LibraryNumber."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT r.ID, r.LibraryNumber, r.Artist, r.Title,
+               mt.Media,
+               CASE WHEN mt.Media = 'DM' OR r.LibraryNumber IS NULL THEN NULL
+                    ELSE CONCAT(mt.Media, '-', r.LibraryNumber) END AS CallNumber
+        FROM RecordLibrary r
+        JOIN MediaType mt ON r.MediaType = mt.ID
+        WHERE r.Artist LIKE %s AND r.Status = 5
+        ORDER BY r.Artist, r.Title
+        LIMIT 200
+    """, ("%" + artist + "%",))
+    rows = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return rows
+
 def fetch_edit_matches_by_artist(artist):
     """Records whose Artist contains `artist`, for the Edit page's by-artist
     lookup — the way to reach DM records and any record with no LibraryNumber."""
@@ -147,7 +169,7 @@ def init_db():
             ID           INT AUTO_INCREMENT PRIMARY KEY,
             Username     VARCHAR(50)  UNIQUE NOT NULL,
             PasswordHash VARCHAR(255) NOT NULL,
-            Role         ENUM('Admin','Librarian','Entry') NOT NULL
+            Role         ENUM('Admin','Librarian','Entry','Restore') NOT NULL
         )
     """)
     db.commit()
@@ -426,13 +448,23 @@ def entry():
                 db = get_db()
                 cursor = db.cursor()
                 cursor.execute("""
+                    SELECT Section FROM Sections
+                    WHERE MediaType = %s
+                      AND RangeEnd > 0
+                      AND %s BETWEEN RangeStart AND RangeEnd
+                    LIMIT 1
+                """, (media_type, library_number))
+                row = cursor.fetchone()
+                section = row[0] if row else None
+
+                cursor.execute("""
                     INSERT INTO RecordLibrary
                         (LibraryNumber, MediaType, Status, Artist, Title, Label,
-                         Genre, Style, ReleaseDate, ReleaseYear)
-                    VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s)
+                         Genre, Style, ReleaseDate, ReleaseYear, Section)
+                    VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (library_number, media_type, artist, title,
                       label or None, genre or None, style or None,
-                      release_date, release_year or None))
+                      release_date, release_year or None, section))
                 db.commit()
                 cursor.close()
                 db.close()
@@ -446,6 +478,91 @@ def entry():
                            genres=genres, media_types=media_types,
                            message=message, message_type=message_type,
                            current_year=current_year)
+
+
+# ── Restore Deleted ───────────────────────────────────────────────────────────
+
+@app.route("/restore", methods=["GET", "POST"])
+@role_required('Entry', 'Restore', 'Librarian', 'Admin')
+def restore():
+    media_types = get_media_types()
+    dm_media_id = next((str(mt["ID"]) for mt in media_types if mt["Media"] == "DM"), "")
+    record      = None
+    message     = None
+    message_type = None
+    search_media_type     = request.form.get("search_media_type", "")
+    search_library_number = request.form.get("search_library_number", "").strip()
+    search_artist         = request.form.get("search_artist", "").strip()
+    artist_matches        = []
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "search":
+            picked_id = request.form.get("record_id", "").strip()
+            if picked_id:
+                candidate = fetch_record_by_id(picked_id)
+                if candidate and candidate["Status"] == 5:
+                    record = candidate
+                    search_media_type     = str(record["MediaType"])
+                    search_library_number = str(record["LibraryNumber"] or "")
+                else:
+                    message = "That record is no longer Deleted."
+                    message_type = "error"
+            elif search_artist:
+                artist_matches = fetch_deleted_matches_by_artist(search_artist)
+                if not artist_matches:
+                    message = f"No Deleted records found for an artist matching '{search_artist}'."
+                    message_type = "error"
+            elif search_media_type and search_library_number:
+                db = get_db()
+                cursor = db.cursor(dictionary=True)
+                cursor.execute("""
+                    SELECT ID, LibraryNumber, MediaType, Status, Artist, Title,
+                           Label, Genre, Style, ReleaseDate, ReleaseYear, Comments, Section
+                    FROM RecordLibrary
+                    WHERE MediaType = %s AND LibraryNumber = %s AND Status = 5
+                """, (search_media_type, search_library_number))
+                record = cursor.fetchone()
+                cursor.close()
+                db.close()
+                if not record:
+                    message = f"No Deleted record found for library number {search_library_number}."
+                    message_type = "error"
+            else:
+                message = "Enter a Library Number, or pick Digital (DM) and search by Artist."
+                message_type = "error"
+
+        elif action == "restore":
+            record_id = request.form.get("record_id")
+            try:
+                db = get_db()
+                cursor = db.cursor()
+                cursor.execute(
+                    "UPDATE RecordLibrary SET Status = 1 WHERE ID = %s AND Status = 5",
+                    (record_id,)
+                )
+                db.commit()
+                restored = cursor.rowcount == 1
+                cursor.close()
+                db.close()
+                if restored:
+                    message = "Record restored to Available."
+                    message_type = "success"
+                else:
+                    message = "That record is no longer Deleted — nothing was changed."
+                    message_type = "error"
+            except Exception as e:
+                message = f"Error: {e}"
+                message_type = "error"
+
+    return render_template("restore.html",
+                           media_types=media_types, record=record,
+                           message=message, message_type=message_type,
+                           search_media_type=search_media_type,
+                           search_library_number=search_library_number,
+                           search_artist=search_artist, artist_matches=artist_matches,
+                           dm_media_id=dm_media_id)
 
 
 # ── Edit / Delete ─────────────────────────────────────────────────────────────
@@ -633,6 +750,31 @@ def bulk_edit():
                     message_type = "error"
 
             records = fetch_records_by_artist(artist)
+
+        elif action == "refresh_sections":
+            try:
+                db = get_db()
+                cursor = db.cursor()
+                cursor.execute("""
+                    UPDATE RecordLibrary r
+                    JOIN Sections s
+                        ON s.MediaType = r.MediaType
+                       AND s.RangeEnd > 0
+                       AND r.LibraryNumber BETWEEN s.RangeStart AND s.RangeEnd
+                    SET r.Section = s.Section
+                    WHERE r.MediaType = 1
+                      AND r.Status = 1
+                      AND r.Section IS NULL
+                """)
+                db.commit()
+                updated = cursor.rowcount
+                cursor.close()
+                db.close()
+                message = f"Section refresh complete: filled in Section for {updated} CD record(s) that had a blank Section."
+                message_type = "success"
+            except Exception as e:
+                message = f"Error: {e}"
+                message_type = "error"
 
     return render_template("bulk_edit.html",
                            genres=genres, records=records, artist=artist,
