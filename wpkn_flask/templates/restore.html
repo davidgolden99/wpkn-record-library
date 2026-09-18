@@ -18,6 +18,7 @@
         </div>
         <nav>
             <a href="/" class="nav-btn">Search</a>
+            <a href="/new_releases" class="nav-btn">New Releases</a>
             {% if current_user.role in ('Entry', 'Librarian', 'Admin') %}
             <a href="/entry" class="nav-btn">Data Entry</a>
             {% endif %}

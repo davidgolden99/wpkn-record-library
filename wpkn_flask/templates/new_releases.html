@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WPKN Record Library</title>
+    <title>WPKN Record Library — New Releases</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
@@ -17,7 +17,7 @@
             <h1>WPKN 89.5 FM Record Library</h1>
         </div>
         <nav>
-            <a href="/new_releases" class="nav-btn">New Releases</a>
+            <a href="/" class="nav-btn">Search</a>
             {% if current_user.is_authenticated %}
                 {% if current_user.role in ('Entry', 'Librarian', 'Admin') %}
                 <a href="/entry" class="nav-btn">Data Entry</a>
@@ -38,71 +38,38 @@
         </nav>
     </header>
     <main>
-        <form method="POST" action="/">
-            <div class="search-fields">
+        <h2>New Releases</h2>
+        <p>The most recently added Available records for a media type — insertion order, not release date (the catalog doesn't track when a record was added).</p>
+
+        <form method="POST" action="/new_releases">
+            <div class="search-panel">
                 <div class="field">
-                    <label for="artist">Artist</label>
-                    <input type="text" id="artist" name="artist" value="{{ artist }}">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="artist_exact" value="1" {% if artist_exact %}checked{% endif %}>
-                        Exact match
-                    </label>
-                </div>
-                <div class="field toggle-field">
-                    <label for="artist_toggle">&nbsp;</label>
-                    <select id="artist_toggle" name="artist_toggle">
-                        <option value="AND" {% if artist_toggle == "AND" %}selected{% endif %}>AND</option>
-                        <option value="OR" {% if artist_toggle == "OR" %}selected{% endif %}>OR</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="artist2">Artist 2</label>
-                    <input type="text" id="artist2" name="artist2" value="{{ artist2 }}">
-                </div>
-                <div class="field">
-                    <label for="title">Title</label>
-                    <input type="text" id="title" name="title" value="{{ title }}">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="title_exact" value="1" {% if title_exact %}checked{% endif %}>
-                        Exact match
-                    </label>
-                </div>
-                <div class="field">
-                    <label for="genre">Genre</label>
-                    <select id="genre" name="genre">
-                        <option value="">(All)</option>
-                        {% for g in genres %}
-                        <option value="{{ g }}" {% if g == genre %}selected{% endif %}>{{ g }}</option>
+                    <label for="media_type">Media Type</label>
+                    <select id="media_type" name="media_type">
+                        <option value="">(Select)</option>
+                        {% for mt in media_types %}
+                        <option value="{{ mt.ID }}" {% if media_type == mt.ID|string %}selected{% endif %}>{{ mt.Media }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="field">
-                    <label for="style">Style</label>
-                    <input type="text" id="style" name="style" value="{{ style }}">
-                </div>
-                <div class="field checkbox-field">
+                <div class="field field-btn">
                     <label>&nbsp;</label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="local_only" value="1" {% if local_only %}checked{% endif %}>
-                        Local artists
-                    </label>
+                    <button type="submit" class="primary-btn">Show New Releases</button>
                 </div>
             </div>
-            <button type="submit">Search</button>
-            <a href="/" class="reset-button">Reset</a>
         </form>
 
         {% if results %}
-        <p>{{ record_count }} records found{% if record_count == 200 %} (showing first 200 — refine your search for more specific results){% endif %}</p>
+        <p>{{ results|length }} most recently added record(s).</p>
         <table>
             <thead>
                 <tr>
                     <th>Call No.</th>
                     <th>Artist</th>
                     <th>Title</th>
-                    <th>Genre</th>
-                    <th>Style</th>
+                    <th>Label</th>
                     <th>Year</th>
+                    <th>Genre</th>
                     <th>Location</th>
                 </tr>
             </thead>
@@ -112,16 +79,18 @@
                     <td>{{ record.CallNumber or '—' }}</td>
                     <td>{{ record.Artist }}</td>
                     <td>{{ record.Title }}</td>
-                    <td>{{ record.Genre or '' }}</td>
-                    <td>{{ record.Style or '' }}</td>
+                    <td>{{ record.Label or '' }}</td>
                     <td>{{ record.ReleaseYear or '' }}</td>
+                    <td>{{ record.Genre or '' }}</td>
                     <td>{{ record.Location }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% elif request.method == 'POST' and not media_type %}
+        <p>Pick a Media Type above to see recent additions.</p>
         {% elif request.method == 'POST' %}
-        <p>No results found.</p>
+        <p>No Available records found for that media type.</p>
         {% endif %}
     </main>
 

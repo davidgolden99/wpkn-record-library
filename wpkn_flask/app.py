@@ -92,17 +92,23 @@ def get_statuses():
 def get_newest_release():
     """Newest release date/year among Available records, for the status bar.
     RecordLibrary has no date-added column, so this is the album's release
-    date/year -- not when it was catalogued (see CLAUDE.md/todo.md). Future
-    dates are excluded: a handful of rows have obviously bad data (e.g. a
-    2077 ReleaseYear) that would otherwise surface as the "newest" release."""
+    date/year -- not when it was catalogued (see CLAUDE.md/todo.md). Dates
+    more than 6 months out are excluded: a handful of rows have obviously
+    bad data (e.g. a 2077 ReleaseYear, or 2028/2029 typos) that would
+    otherwise surface as the "newest" release. A shorter, few-weeks-out
+    future date is kept -- confirmed 2026-09-17 that WPKN does catalog
+    advance copies ahead of their actual street date, so excluding *all*
+    future dates would have hidden legitimate recent entries too."""
     db = get_db()
     cursor = db.cursor(dictionary=True)
     cursor.execute("""
         SELECT
             (SELECT MAX(ReleaseDate) FROM RecordLibrary
-              WHERE Status = 1 AND ReleaseDate IS NOT NULL AND ReleaseDate <= CURDATE()) AS max_date,
+              WHERE Status = 1 AND ReleaseDate IS NOT NULL
+                AND ReleaseDate <= DATE_ADD(CURDATE(), INTERVAL 6 MONTH)) AS max_date,
             (SELECT MAX(ReleaseYear) FROM RecordLibrary
-              WHERE Status = 1 AND ReleaseYear IS NOT NULL AND ReleaseYear <= YEAR(CURDATE())) AS max_year
+              WHERE Status = 1 AND ReleaseYear IS NOT NULL
+                AND ReleaseYear <= YEAR(DATE_ADD(CURDATE(), INTERVAL 6 MONTH))) AS max_year
     """)
     row = cursor.fetchone()
     cursor.close()
@@ -148,6 +154,32 @@ def fetch_record_by_id(record_id):
     cursor.close()
     db.close()
     return record
+
+def fetch_new_releases(media_type, limit=50):
+    """Most recently added Available records of one MediaType, for the New
+    Releases page. "Latest" = insertion order (ID DESC) -- RecordLibrary has
+    no date-added column, so this is a proxy, not an actual date."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT
+            CASE WHEN mt.Media = 'DM' THEN NULL
+                 ELSE CONCAT(mt.Media, '-', r.LibraryNumber)
+            END AS CallNumber,
+            r.Artist, r.Title, r.Label, r.ReleaseYear, r.Genre,
+            CASE WHEN mt.Media = 'DM' THEN 'Digital'
+                 ELSE CONCAT(mt.Media, ' - Section ', r.Section)
+            END AS Location
+        FROM RecordLibrary r
+        JOIN MediaType mt ON r.MediaType = mt.ID
+        WHERE r.Status = 1 AND r.MediaType = %s
+        ORDER BY r.ID DESC
+        LIMIT %s
+    """, (media_type, limit))
+    rows = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return rows
 
 def fetch_deleted_matches_by_artist(artist):
     """Deleted (Status=5) records whose Artist contains `artist`, for the
@@ -461,6 +493,23 @@ def search():
                            local_only=local_only,
                            genres=genres,
                            record_count=record_count)
+
+
+# ── New Releases (public) ──────────────────────────────────────────────────────
+
+@app.route("/new_releases", methods=["GET", "POST"])
+def new_releases():
+    media_types = get_media_types()
+    media_type  = request.form.get("media_type", "")
+    results     = []
+
+    if request.method == "POST" and media_type:
+        results = fetch_new_releases(media_type, limit=50)
+
+    return render_template("new_releases.html",
+                           media_types=media_types,
+                           media_type=media_type,
+                           results=results)
 
 
 # ── Data Entry ────────────────────────────────────────────────────────────────
