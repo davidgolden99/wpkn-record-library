@@ -39,5 +39,11 @@
             </form>
         </div>
     </main>
+
+    <footer class="status-bar">
+        WPKN Record Library v{{ app_version }}
+        <span class="sep">&middot;</span>{{ current_date }}
+        {% if newest_release %}<span class="sep">&middot;</span>Newest release: {{ newest_release }}{% endif %}
+    </footer>
 </body>
 </html>

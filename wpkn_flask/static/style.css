@@ -387,3 +387,20 @@ h2 {
     color: #721c24;
     border: 1px solid #f5c6cb;
 }
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+
+.status-bar {
+    background-color: #1F3864;
+    color: rgba(255,255,255,0.85);
+    padding: 10px 20px;
+    margin-top: 24px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    text-align: center;
+}
+
+.status-bar .sep {
+    margin: 0 8px;
+    color: rgba(255,255,255,0.4);
+}

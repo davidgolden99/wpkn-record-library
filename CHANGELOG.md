@@ -7,6 +7,10 @@ All notable changes to this project are documented here.
 ### Added
 - WPKN logo in the header of every page — the solid-disc "WPKN DL, White Transparent Basic" mark, chosen after compositing candidate marks onto the header's actual navy (`#1F3864`) background to check real contrast (an all-black variant tested nearly invisible there). New `wpkn_flask/static/logo.png`, `.header-title`/`.logo` CSS, header markup updated on all 7 templates.
 - Favicon (`favicon.ico`, `favicon-32x32.png`, `favicon-16x16.png`) and an `apple-touch-icon.png` for iOS home-screen bookmarking, generated from the same logo mark. `<link rel="icon">`/`<link rel="apple-touch-icon">` added to all 7 templates' `<head>`.
+- Status bar on every page: app version, current date, and the newest release date/year in the catalog (`Status = 1` records; excludes a handful of rows with future/bad `ReleaseDate`/`ReleaseYear` data — see Fixed below). Labeled "Newest release," not "last entry" — `RecordLibrary` has no date-added column, so this reflects the album's release date, not when it was catalogued. New `APP_VERSION` constant + `get_newest_release()` + `inject_status_bar()` context processor in `app.py`, `.status-bar` CSS, `<footer>` added to all 7 templates.
+
+### Fixed
+- (Data, not code) Found while building the status bar: 6 `Status = 1` rows have a `ReleaseDate` or `ReleaseYear` in the future (as late as 2077) — clearly bad data, not real releases. The status bar query excludes anything later than today so it can't surface as the "newest release," but the underlying bad rows are still in the catalog and haven't been corrected. Tracked in `wpkn_database/todo.md` under "Data & Database."
 
 ## [v1.3] - 2026-09-17
 

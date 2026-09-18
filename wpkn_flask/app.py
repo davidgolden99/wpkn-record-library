@@ -8,6 +8,10 @@ import os
 from datetime import date
 load_dotenv()
 
+# Bumped by hand alongside CHANGELOG.md -- not read from git tags (v1.3 was
+# never tagged, so tags aren't reliably in sync with what's deployed).
+APP_VERSION = "1.4"
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "wpkn-library-secret-2026")
 
@@ -85,6 +89,34 @@ def get_statuses():
     db.close()
     return statuses
 
+def get_newest_release():
+    """Newest release date/year among Available records, for the status bar.
+    RecordLibrary has no date-added column, so this is the album's release
+    date/year -- not when it was catalogued (see CLAUDE.md/todo.md). Future
+    dates are excluded: a handful of rows have obviously bad data (e.g. a
+    2077 ReleaseYear) that would otherwise surface as the "newest" release."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT
+            (SELECT MAX(ReleaseDate) FROM RecordLibrary
+              WHERE Status = 1 AND ReleaseDate IS NOT NULL AND ReleaseDate <= CURDATE()) AS max_date,
+            (SELECT MAX(ReleaseYear) FROM RecordLibrary
+              WHERE Status = 1 AND ReleaseYear IS NOT NULL AND ReleaseYear <= YEAR(CURDATE())) AS max_year
+    """)
+    row = cursor.fetchone()
+    cursor.close()
+    db.close()
+
+    max_date = row["max_date"]
+    max_year = row["max_year"]
+    if max_date and (not max_year or max_date.year >= max_year):
+        return max_date.strftime("%B %-d, %Y")
+    if max_year:
+        return str(max_year)
+    return None
+
+
 def fetch_records_by_artist(artist):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -160,6 +192,19 @@ def fetch_edit_matches_by_artist(artist):
     cursor.close()
     db.close()
     return rows
+
+@app.context_processor
+def inject_status_bar():
+    try:
+        newest_release = get_newest_release()
+    except Exception:
+        newest_release = None
+    return {
+        "app_version": APP_VERSION,
+        "current_date": date.today().strftime("%B %-d, %Y"),
+        "newest_release": newest_release,
+    }
+
 
 def init_db():
     db = get_db()
