@@ -168,6 +168,7 @@ def fetch_new_releases(media_type, limit=50):
             END AS CallNumber,
             r.Artist, r.Title, r.Label, r.ReleaseYear, r.Genre,
             CASE WHEN mt.Media = 'DM' THEN 'Digital'
+                 WHEN r.Section IS NULL THEN mt.Media
                  ELSE CONCAT(mt.Media, ' - Section ', r.Section)
             END AS Location
         FROM RecordLibrary r
@@ -436,6 +437,7 @@ def search():
                 r.Artist, r.Title, r.Genre, r.Style, r.ReleaseYear, r.Comments,
                 CASE
                     WHEN mt.Media = 'DM' THEN 'Digital'
+                    WHEN r.Section IS NULL THEN mt.Media
                     ELSE CONCAT(mt.Media, ' - Section ', r.Section)
                 END AS Location
             FROM RecordLibrary r
