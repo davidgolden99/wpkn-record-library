@@ -18,6 +18,18 @@ header {
     justify-content: space-between;
 }
 
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo {
+    height: 40px;
+    width: 40px;
+    display: block;
+}
+
 nav {
     display: flex;
     gap: 10px;

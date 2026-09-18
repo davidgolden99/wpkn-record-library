@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WPKN Record Library — Bulk Edit</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
 </head>
 <body>
     <header>
-        <h1>WPKN 89.5 FM Record Library</h1>
+        <div class="header-title">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="WPKN" class="logo">
+            <h1>WPKN 89.5 FM Record Library</h1>
+        </div>
         <nav>
             <a href="/" class="nav-btn">Search</a>
             <a href="/entry" class="nav-btn">Data Entry</a>

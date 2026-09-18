@@ -2,9 +2,15 @@
 
 All notable changes to this project are documented here.
 
-## [v1.3] - unreleased
+## [v1.4] - unreleased
 
-Batched for the programmer-feedback window; target deploy ~2026-09-20.
+### Added
+- WPKN logo in the header of every page — the solid-disc "WPKN DL, White Transparent Basic" mark, chosen after compositing candidate marks onto the header's actual navy (`#1F3864`) background to check real contrast (an all-black variant tested nearly invisible there). New `wpkn_flask/static/logo.png`, `.header-title`/`.logo` CSS, header markup updated on all 7 templates.
+- Favicon (`favicon.ico`, `favicon-32x32.png`, `favicon-16x16.png`) and an `apple-touch-icon.png` for iOS home-screen bookmarking, generated from the same logo mark. `<link rel="icon">`/`<link rel="apple-touch-icon">` added to all 7 templates' `<head>`.
+
+## [v1.3] - 2026-09-17
+
+Deployed on-site 2026-09-17 (earlier than the originally planned ~2026-09-20 feedback-window close).
 
 ### Added
 - Edit page: by-artist lookup for records that can't be found by Library
