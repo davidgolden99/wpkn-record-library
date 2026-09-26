@@ -125,6 +125,12 @@
                                 {{ mt.Media }}
                             </option>
                             {% endfor %}
+                            {# Legacy DV records: DV is filtered out of media_types, so without
+                               this the browser would default to CD and a Save would silently
+                               rewrite MediaType. #}
+                            {% if record.MediaType not in media_types|map(attribute='ID')|list %}
+                            <option value="{{ record.MediaType }}" selected>DV (legacy, no longer assignable)</option>
+                            {% endif %}
                         </select>
                     </div>
                     <div class="field">

@@ -10,7 +10,7 @@ load_dotenv()
 
 # Bumped by hand alongside CHANGELOG.md -- not read from git tags (v1.3 was
 # never tagged, so tags aren't reliably in sync with what's deployed).
-APP_VERSION = "1.4"
+APP_VERSION = "1.4.1"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "wpkn-library-secret-2026")
@@ -74,7 +74,9 @@ def get_genres():
 def get_media_types():
     db = get_db()
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT ID, Media FROM MediaType ORDER BY ID")
+    # DV is retired (v1.4.1): hidden from every dropdown, but the MediaType row
+    # stays so the legacy DV records still resolve in the INNER JOINs.
+    cursor.execute("SELECT ID, Media FROM MediaType WHERE Media != 'DV' ORDER BY ID")
     media_types = cursor.fetchall()
     cursor.close()
     db.close()
@@ -581,6 +583,7 @@ def entry():
 @app.route("/restore", methods=["GET", "POST"])
 @role_required('Entry', 'Restore', 'Librarian', 'Admin')
 def restore():
+    genres      = get_genres()
     media_types = get_media_types()
     dm_media_id = next((str(mt["ID"]) for mt in media_types if mt["Media"] == "DM"), "")
     record      = None
@@ -634,10 +637,16 @@ def restore():
             try:
                 db = get_db()
                 cursor = db.cursor()
-                cursor.execute(
-                    "UPDATE RecordLibrary SET Status = 1 WHERE ID = %s AND Status = 5",
-                    (record_id,)
-                )
+                cursor.execute("""
+                    UPDATE RecordLibrary SET
+                        Status = 1, Label = %s, Genre = %s, ReleaseYear = %s
+                    WHERE ID = %s AND Status = 5
+                """, (
+                    request.form.get("label", "").strip()  or None,
+                    request.form.get("genre")              or None,
+                    request.form.get("release_year")       or None,
+                    record_id
+                ))
                 db.commit()
                 restored = cursor.rowcount == 1
                 cursor.close()
@@ -653,7 +662,7 @@ def restore():
                 message_type = "error"
 
     return render_template("restore.html",
-                           media_types=media_types, record=record,
+                           genres=genres, media_types=media_types, record=record,
                            message=message, message_type=message_type,
                            search_media_type=search_media_type,
                            search_library_number=search_library_number,
