@@ -404,3 +404,43 @@ h2 {
     margin: 0 8px;
     color: rgba(255,255,255,0.4);
 }
+
+/* Genre review (v1.5) */
+.table-scroll {
+    overflow-x: auto;
+}
+
+.genre-progress {
+    font-size: 1.05em;
+}
+
+.genre-table select,
+.genre-table input[type="text"] {
+    font-size: 14px;
+    padding: 4px;
+}
+
+.genre-table .gs-notes {
+    width: 220px;
+}
+
+.save-state {
+    white-space: nowrap;
+    font-size: 13px;
+    color: #666;
+}
+
+.save-state.saved {
+    color: #2e7d32;
+}
+
+.save-state.failed {
+    color: #c62828;
+}
+
+.review-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin: 0;
+}

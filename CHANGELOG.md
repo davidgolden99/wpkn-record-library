@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [v1.5] - unreleased
+
+### Added
+- **Genre review, built into the app instead of NocoDB.** This is Phase 3b of the data cleansing plan.
+  - **My Genre List (`/genres`)** is for volunteers with the new **Genre** role. It shows their own assigned batch, sorted by artist, with a "Look it up" link (Discogs search) per row. Each row has Suggested genre (41 approved genres only), Confidence (High/Medium/Low), and Notes. Rows **save automatically** as they're changed; there's no Save button, matching `genre_reviewer_guide.md`. An "N of M done" counter counts a row as done only once a genre is chosen; a note without a genre stays open. The server checks that the genre is approved and the row belongs to that volunteer. Reviewed rows are locked.
+  - **Genre Review (`/genres/review`)** is for Librarian/Admin. It shows a per-volunteer progress summary and the suggestions waiting for review. Each can be approved, changed then approved, or rejected, and there's a bulk "Approve all High confidence" button, optionally for one volunteer. Approving writes `RecordLibrary.Genre` (and clears `NeedsReview`) **only if the record's Genre is still blank**. Otherwise the suggestion is marked `skipped`, so nothing is ever overwritten.
+  - `genre_staging` is kept permanently as the audit log: who proposed what and when, and who approved which final genre.
+  - New **Genre** role: it can reach only My Genre List, Search, and New Releases. It's added to Admin's role dropdowns.
+  - `migration/assign_genre_batch.sql` assigns a batch to one volunteer. Set the username and batch size, then run it. It picks Available CDs with no genre whose artist has no other record with a genre, so the planned same-artist fill-in could never answer them. It skips anything already assigned, sorts by artist, and refuses unknown usernames.
+
+### Fixed
+- Search and New Releases showed a **Restore Deleted** link to every logged-in user. Now only roles that can use it see it, which matters now that Genre volunteers can log in.
+
+### Data
+- `migration/v1.5_genre_review.sql` adds `'Genre'` to `Users.Role` and creates `genre_staging`. Run it by hand on prod with this deploy, **before** anyone opens Genre Review.
+
 ## [v1.4.1] - 2026-09-26
 
 ### Changed

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — Genre Review</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="WPKN" class="logo">
+            <h1>WPKN 89.5 FM Record Library</h1>
+        </div>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+            <a href="/new_releases" class="nav-btn">New Releases</a>
+            <a href="/entry" class="nav-btn">Data Entry</a>
+            <a href="/edit" class="nav-btn">Edit Record</a>
+            <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
+            <a href="/restore" class="nav-btn">Restore Deleted</a>
+            <a href="/genres/review" class="nav-btn">Genre Review</a>
+            {% if current_user.role == 'Admin' %}
+            <a href="/admin" class="nav-btn">Admin</a>
+            {% endif %}
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="/logout" class="nav-btn">Log Out</a>
+        </nav>
+    </header>
+    <main>
+        <h2>Genre Review</h2>
+        <p>Volunteer suggestions waiting for review. <strong>Approve</strong> writes the genre into the catalog — only if the record still has no genre, so nothing is ever overwritten. <strong>Reject</strong> leaves the record as it is.</p>
+
+        {% if message %}
+        <div class="entry-message {{ message_type }}">{{ message }}</div>
+        {% endif %}
+
+        {% if summary %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Volunteer</th>
+                    <th>Assigned</th>
+                    <th>Open</th>
+                    <th>To review</th>
+                    <th>Approved</th>
+                    <th>Rejected</th>
+                    <th>Skipped</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in summary %}
+                <tr>
+                    <td>{{ v.assigned_to }}</td>
+                    <td>{{ v.total }}</td>
+                    <td>{{ v.open_rows }}</td>
+                    <td>{{ v.proposed }}</td>
+                    <td>{{ v.approved }}</td>
+                    <td>{{ v.rejected }}</td>
+                    <td>{{ v.skipped }}</td>
+                    <td><a href="/genres/review?volunteer={{ v.assigned_to|urlencode }}">Show only</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No batches have been assigned yet (see <code>migration/assign_genre_batch.sql</code>).</p>
+        {% endif %}
+
+        {% if proposals %}
+        <h2>{{ proposals|length }} suggestion(s) to review{% if volunteer %} from {{ volunteer }} <a href="/genres/review" class="secondary-btn-link">Show all</a>{% endif %}{% if proposals|length == 500 %} (first 500){% endif %}</h2>
+
+        <form method="POST" action="/genres/review"
+              onsubmit="return confirm('Approve every High-confidence suggestion{% if volunteer %} from {{ volunteer }}{% endif %}?');">
+            <input type="hidden" name="action" value="approve_high">
+            <input type="hidden" name="volunteer" value="{{ volunteer }}">
+            <button type="submit" class="primary-btn">Approve all High confidence{% if volunteer %} from {{ volunteer }}{% endif %}</button>
+        </form>
+
+        <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Volunteer</th>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th>Label</th>
+                    <th>Year</th>
+                    <th>Confidence</th>
+                    <th>Notes</th>
+                    <th>Genre</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proposals %}
+                <tr>
+                    <td>{{ p.assigned_to }}</td>
+                    <td>{{ p.artist }}</td>
+                    <td>{{ p.title }} <a href="{{ p.lookup_url }}" target="_blank" rel="noopener">(look up)</a></td>
+                    <td>{{ p.label or '' }}</td>
+                    <td>{{ p.year or '' }}</td>
+                    <td>{{ p.confidence or '' }}</td>
+                    <td>{{ p.notes or '' }}</td>
+                    <td colspan="2">
+                        <form method="POST" action="/genres/review" class="review-form">
+                            <input type="hidden" name="record_id" value="{{ p.record_id }}">
+                            <input type="hidden" name="volunteer" value="{{ volunteer }}">
+                            <select name="final_genre" aria-label="Genre">
+                                {% for g in genres %}
+                                <option value="{{ g }}" {% if p.proposed_genre == g %}selected{% endif %}>{{ g }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" name="action" value="approve" class="table-btn">Approve</button>
+                            <button type="submit" name="action" value="reject" class="table-btn delete">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% elif summary %}
+        <p>Nothing waiting for review{% if volunteer %} from {{ volunteer }} <a href="/genres/review" class="secondary-btn-link">Show all</a>{% endif %}.</p>
+        {% endif %}
+    </main>
+
+    <footer class="status-bar">
+        WPKN Record Library v{{ app_version }}
+        <span class="sep">&middot;</span>{{ current_date }}
+        {% if newest_release %}<span class="sep">&middot;</span>Newest release: {{ newest_release }}{% endif %}
+    </footer>
+</body>
+</html>

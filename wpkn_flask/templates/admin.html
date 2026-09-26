@@ -23,6 +23,7 @@
             <a href="/edit" class="nav-btn">Edit Record</a>
             <a href="/bulk_edit" class="nav-btn">Bulk Edit</a>
             <a href="/restore" class="nav-btn">Restore Deleted</a>
+            <a href="/genres/review" class="nav-btn">Genre Review</a>
             <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
             <a href="/logout" class="nav-btn">Log Out</a>
         </nav>
@@ -86,6 +87,7 @@
                             <option value="Librarian" {% if edit_user.Role == 'Librarian' %}selected{% endif %}>Librarian</option>
                             <option value="Entry"     {% if edit_user.Role == 'Entry'     %}selected{% endif %}>Entry</option>
                             <option value="Restore"   {% if edit_user.Role == 'Restore'   %}selected{% endif %}>Restore</option>
+                            <option value="Genre"     {% if edit_user.Role == 'Genre'     %}selected{% endif %}>Genre</option>
                         </select>
                     </div>
                 </div>
@@ -114,6 +116,7 @@
                         <select id="role" name="role">
                             <option value="Entry">Entry</option>
                             <option value="Restore">Restore</option>
+                            <option value="Genre">Genre</option>
                             <option value="Librarian">Librarian</option>
                             <option value="Admin">Admin</option>
                         </select>

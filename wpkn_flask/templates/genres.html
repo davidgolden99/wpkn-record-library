@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WPKN Record Library — My Genre List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+</head>
+<body>
+    <header>
+        <div class="header-title">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="WPKN" class="logo">
+            <h1>WPKN 89.5 FM Record Library</h1>
+        </div>
+        <nav>
+            <a href="/" class="nav-btn">Search</a>
+            <a href="/new_releases" class="nav-btn">New Releases</a>
+            <a href="/genres" class="nav-btn">My Genre List</a>
+            {% if current_user.role in ('Librarian', 'Admin') %}
+            <a href="/genres/review" class="nav-btn">Genre Review</a>
+            {% endif %}
+            <span class="nav-user">{{ current_user.username }} ({{ current_user.role }})</span>
+            <a href="/logout" class="nav-btn">Log Out</a>
+        </nav>
+    </header>
+    <main>
+        <h2>My Genre List</h2>
+
+        {% if not rows %}
+        <p>You don't have any albums assigned yet. David will email you when your list is ready.</p>
+        {% else %}
+        <p>Pick the best-fitting genre for each album and how sure you are. <strong>Each row saves automatically</strong> — there's no Save button. Not sure? Leave the genre blank and add a note.</p>
+        <p class="genre-progress"><strong id="done-count">{{ done }}</strong> of {{ rows|length }} done</p>
+
+        <div class="table-scroll">
+        <table class="genre-table">
+            <thead>
+                <tr>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th>Label</th>
+                    <th>Year</th>
+                    <th></th>
+                    <th>Suggested genre</th>
+                    <th>Confidence</th>
+                    <th>Notes</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                {% set locked = r.status not in ('open', 'proposed') %}
+                <tr data-record-id="{{ r.record_id }}">
+                    <td>{{ r.artist }}</td>
+                    <td>{{ r.title }}</td>
+                    <td>{{ r.label or '' }}</td>
+                    <td>{{ r.year or '' }}</td>
+                    <td><a href="{{ r.lookup_url }}" target="_blank" rel="noopener">Look it up</a></td>
+                    {% if locked %}
+                    <td>{{ r.final_genre or r.proposed_genre or '' }}</td>
+                    <td>{{ r.confidence or '' }}</td>
+                    <td>{{ r.notes or '' }}</td>
+                    <td class="save-state">{{ {'approved': 'Approved', 'rejected': 'Reviewed', 'skipped': 'Reviewed'}[r.status] }}</td>
+                    {% else %}
+                    <td>
+                        <select class="gs-genre" aria-label="Suggested genre">
+                            <option value="">—</option>
+                            {% for g in genres %}
+                            <option value="{{ g }}" {% if r.proposed_genre == g %}selected{% endif %}>{{ g }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="gs-confidence" aria-label="Confidence">
+                            <option value="">—</option>
+                            {% for c in confidence_levels %}
+                            <option value="{{ c }}" {% if r.confidence == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="text" class="gs-notes" aria-label="Notes" maxlength="500" value="{{ r.notes or '' }}"></td>
+                    <td class="save-state"></td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+    </main>
+
+    <footer class="status-bar">
+        WPKN Record Library v{{ app_version }}
+        <span class="sep">&middot;</span>{{ current_date }}
+        {% if newest_release %}<span class="sep">&middot;</span>Newest release: {{ newest_release }}{% endif %}
+    </footer>
+
+    <script>
+        // Autosave: any change to a row posts just that row.
+        function saveRow(tr) {
+            var state = tr.querySelector('.save-state');
+            state.textContent = 'Saving…';
+            state.className = 'save-state';
+            fetch('/genres/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    record_id: tr.dataset.recordId,
+                    proposed_genre: tr.querySelector('.gs-genre').value,
+                    confidence: tr.querySelector('.gs-confidence').value,
+                    notes: tr.querySelector('.gs-notes').value
+                })
+            }).then(function (resp) {
+                // An expired login redirects to the login page (HTML, not JSON).
+                var isJson = (resp.headers.get('Content-Type') || '').indexOf('application/json') !== -1;
+                if (resp.redirected || !isJson) {
+                    return {ok: false, data: {error: 'Not saved — you\'ve been logged out. Reload the page and log in again.'}};
+                }
+                return resp.json().then(function (data) { return {ok: resp.ok && data.ok, data: data}; });
+            }).then(function (result) {
+                if (result.ok) {
+                    state.textContent = 'Saved ✓';
+                    state.className = 'save-state saved';
+                    document.getElementById('done-count').textContent = result.data.done;
+                } else {
+                    state.textContent = result.data.error || 'Not saved';
+                    state.className = 'save-state failed';
+                }
+            }).catch(function () {
+                state.textContent = 'Not saved — check your connection';
+                state.className = 'save-state failed';
+            });
+        }
+        document.querySelectorAll('.genre-table tr[data-record-id]').forEach(function (tr) {
+            tr.querySelectorAll('select, input').forEach(function (el) {
+                el.addEventListener('change', function () { saveRow(tr); });
+            });
+        });
+    </script>
+</body>
+</html>

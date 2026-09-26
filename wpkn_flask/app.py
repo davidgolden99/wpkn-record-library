@@ -6,11 +6,12 @@ from functools import wraps
 import mysql.connector
 import os
 from datetime import date
+from urllib.parse import quote_plus
 load_dotenv()
 
 # Bumped by hand alongside CHANGELOG.md -- not read from git tags (v1.3 was
 # never tagged, so tags aren't reliably in sync with what's deployed).
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.5"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "wpkn-library-secret-2026")
@@ -272,7 +273,7 @@ def init_db():
             ID           INT AUTO_INCREMENT PRIMARY KEY,
             Username     VARCHAR(50)  UNIQUE NOT NULL,
             PasswordHash VARCHAR(255) NOT NULL,
-            Role         ENUM('Admin','Librarian','Entry','Restore') NOT NULL
+            Role         ENUM('Admin','Librarian','Entry','Restore','Genre') NOT NULL
         )
     """)
     db.commit()
@@ -919,6 +920,197 @@ def bulk_edit():
 
 
 # ── Next library number API ───────────────────────────────────────────────────
+
+# ── Genre review (volunteers propose, Librarian approves) ─────────────────────
+
+CONFIDENCE_LEVELS = ("High", "Medium", "Low")
+
+def discogs_search_url(artist, title):
+    return ("https://www.discogs.com/search/?type=all&q="
+            + quote_plus(f"{artist or ''} {title or ''}".strip()))
+
+@app.route("/genres")
+@role_required('Genre', 'Librarian', 'Admin')
+def genres():
+    """A volunteer's own batch. Rows save one at a time via /genres/save."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT record_id, artist, title, label, year, media,
+               proposed_genre, confidence, notes, status, final_genre
+        FROM genre_staging
+        WHERE assigned_to = %s
+        ORDER BY artist, title, record_id
+    """, (current_user.username,))
+    rows = cursor.fetchall()
+    cursor.close()
+    db.close()
+    for row in rows:
+        row["lookup_url"] = discogs_search_url(row["artist"], row["title"])
+    # A note with no genre stays open -- only a chosen genre counts as done.
+    done = sum(1 for r in rows if r["status"] != "open")
+    return render_template("genres.html", rows=rows, done=done,
+                           genres=get_genres(), confidence_levels=CONFIDENCE_LEVELS)
+
+@app.route("/genres/save", methods=["POST"])
+@role_required('Genre', 'Librarian', 'Admin')
+def genres_save():
+    data       = request.get_json(silent=True) or {}
+    record_id  = data.get("record_id")
+    genre      = (data.get("proposed_genre") or "").strip()
+    confidence = (data.get("confidence") or "").strip()
+    notes      = (data.get("notes") or "").strip()[:500]
+    if genre and genre not in get_genres():
+        return jsonify({"ok": False, "error": "Pick a genre from the list."}), 400
+    if confidence and confidence not in CONFIDENCE_LEVELS:
+        return jsonify({"ok": False, "error": "Pick High, Medium, or Low."}), 400
+    db = get_db()
+    cursor = db.cursor()
+    # Only the volunteer's own rows, and never one the Librarian has already
+    # approved or rejected. Checked with a SELECT rather than the UPDATE's
+    # rowcount, which is 0 when a re-save changes nothing.
+    cursor.execute("""
+        SELECT status FROM genre_staging WHERE record_id = %s AND assigned_to = %s
+    """, (record_id, current_user.username))
+    row = cursor.fetchone()
+    if not row or row[0] not in ("open", "proposed"):
+        cursor.close()
+        db.close()
+        if not row:
+            return jsonify({"ok": False, "error": "This album isn't on your list."}), 404
+        return jsonify({"ok": False,
+                        "error": "This row can't be changed any more — it's already been reviewed."}), 409
+    cursor.execute("""
+        UPDATE genre_staging SET
+            proposed_genre = %s, confidence = %s, notes = %s,
+            status = %s, edited_by = %s, edited_at = NOW()
+        WHERE record_id = %s AND assigned_to = %s AND status IN ('open', 'proposed')
+    """, (genre or None, confidence or None, notes or None,
+          "proposed" if genre else "open",
+          current_user.username, record_id, current_user.username))
+    db.commit()
+    cursor.execute("""
+        SELECT COUNT(*), SUM(status <> 'open') FROM genre_staging WHERE assigned_to = %s
+    """, (current_user.username,))
+    total, done = cursor.fetchone()
+    cursor.close()
+    db.close()
+    return jsonify({"ok": True, "status": "proposed" if genre else "open",
+                    "done": int(done or 0), "total": total})
+
+@app.route("/genres/review", methods=["GET", "POST"])
+@role_required('Librarian', 'Admin')
+def genre_review():
+    genre_list = get_genres()
+    volunteer  = request.values.get("volunteer", "").strip()
+    message = None
+    message_type = None
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            if action in ("approve", "reject"):
+                targets = [(request.form.get("record_id"), request.form.get("final_genre", "").strip())]
+            elif action == "approve_high":
+                cursor.execute("""
+                    SELECT record_id, proposed_genre FROM genre_staging
+                    WHERE status = 'proposed' AND confidence = 'High'
+                """ + (" AND assigned_to = %s" if volunteer else ""),
+                    (volunteer,) if volunteer else ())
+                targets = [(r["record_id"], r["proposed_genre"]) for r in cursor.fetchall()]
+            else:
+                targets = []
+
+            approved = rejected = skipped = 0
+            for record_id, final_genre in targets:
+                if action == "reject":
+                    cursor.execute("""
+                        UPDATE genre_staging SET status = 'rejected',
+                               reviewed_by = %s, reviewed_at = NOW()
+                        WHERE record_id = %s AND status = 'proposed'
+                    """, (current_user.username, record_id))
+                    rejected += cursor.rowcount
+                    continue
+                if final_genre not in genre_list:
+                    raise ValueError(f"'{final_genre}' is not in the Genre list.")
+                # Only a row a volunteer has actually proposed, locked so a
+                # concurrent save can't slip in between the two writes.
+                cursor.execute("""
+                    SELECT status FROM genre_staging WHERE record_id = %s FOR UPDATE
+                """, (record_id,))
+                row = cursor.fetchone()
+                if not row or row["status"] != "proposed":
+                    continue
+                # Never overwrite a genre someone added some other way in the
+                # meantime (Edit, Restore, Bulk Edit).
+                cursor.execute("""
+                    UPDATE RecordLibrary SET Genre = %s, NeedsReview = 0
+                    WHERE ID = %s AND (Genre IS NULL OR Genre = '')
+                """, (final_genre, record_id))
+                wrote = cursor.rowcount == 1
+                cursor.execute("""
+                    UPDATE genre_staging SET status = %s, final_genre = %s,
+                           reviewed_by = %s, reviewed_at = NOW()
+                    WHERE record_id = %s AND status = 'proposed'
+                """, ("approved" if wrote else "skipped", final_genre if wrote else None,
+                      current_user.username, record_id))
+                if wrote:
+                    approved += 1
+                else:
+                    skipped += 1
+            db.commit()
+            parts = []
+            if approved: parts.append(f"{approved} approved")
+            if rejected: parts.append(f"{rejected} rejected")
+            if skipped:  parts.append(f"{skipped} skipped (record already had a genre)")
+            if parts:
+                message = ", ".join(parts).capitalize() + "."
+            elif action in ("approve", "reject"):
+                message = "That suggestion isn't waiting for review any more — it was already reviewed or changed."
+            else:
+                message = "No High-confidence suggestions to approve."
+            message_type = "success"
+        except Exception as e:
+            db.rollback()
+            message = f"Error: {e}"
+            message_type = "error"
+        finally:
+            cursor.close()
+            db.close()
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT assigned_to,
+               COUNT(*)                   AS total,
+               SUM(status = 'open')       AS open_rows,
+               SUM(status = 'proposed')   AS proposed,
+               SUM(status = 'approved')   AS approved,
+               SUM(status = 'rejected')   AS rejected,
+               SUM(status = 'skipped')    AS skipped
+        FROM genre_staging GROUP BY assigned_to ORDER BY assigned_to
+    """)
+    summary = cursor.fetchall()
+    cursor.execute("""
+        SELECT record_id, artist, title, label, year, media, assigned_to,
+               proposed_genre, confidence, notes, edited_at
+        FROM genre_staging
+        WHERE status = 'proposed'
+    """ + (" AND assigned_to = %s" if volunteer else "") + """
+        ORDER BY assigned_to, artist, title, record_id
+        LIMIT 500
+    """, (volunteer,) if volunteer else ())
+    proposals = cursor.fetchall()
+    cursor.close()
+    db.close()
+    for row in proposals:
+        row["lookup_url"] = discogs_search_url(row["artist"], row["title"])
+    return render_template("genre_review.html", summary=summary, proposals=proposals,
+                           volunteer=volunteer, genres=genre_list,
+                           message=message, message_type=message_type)
+
 
 @app.route("/api/next_library_number")
 @role_required('Entry', 'Librarian', 'Admin')
