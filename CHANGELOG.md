@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [v1.4.1] - unreleased
+## [v1.4.1] - 2026-09-26
 
 ### Changed
 - **Restore Deleted** screen can now correct **Label** and **Release Year** while restoring, and **requires an approved Genre** (from the `Genre` table) before a record can go back to Available. Blank and off-list values are both rejected, checked on the server as well as in the browser, and a rejected save keeps what was typed. Restores are picked by someone with thorough musical knowledge, so this makes every restored record come back with a real genre instead of adding to the catalog's blank-genre backlog. A Deleted record whose old Genre isn't on the list (216 CDs on local dev, e.g. "Texas Swing, Jazz", "VOCAL") shows that value for reference. On restore it's copied into **Style**, added after any existing Style text with "; " (14 of the 216 already have a Style), so the detail isn't lost. Everything else stays read-only.
@@ -14,7 +14,7 @@ All notable changes to this project are documented here.
 ### Data
 - `migration/v1.4.1_retire_dv.sql`: `UPDATE RecordLibrary SET Status = 5 WHERE MediaType = 3;` (the 109 DV records → Deleted). Run by hand on prod with this deploy. It's idempotent, and a no-op on local dev, where all 109 were already Deleted.
 
-## [v1.4] - unreleased
+## [v1.4] - 2026-09-17
 
 ### Added
 - WPKN logo in the header of every page — the solid-disc "WPKN DL, White Transparent Basic" mark, chosen after compositing candidate marks onto the header's actual navy (`#1F3864`) background to check real contrast (an all-black variant tested nearly invisible there). New `wpkn_flask/static/logo.png`, `.header-title`/`.logo` CSS, header markup updated on all 7 templates.
