@@ -228,6 +228,29 @@ def fetch_edit_matches_by_artist(artist):
     db.close()
     return rows
 
+def fetch_matches_by_number(media_type, library_number, deleted_only=False):
+    """Records with this MediaType + LibraryNumber. LibraryNumber isn't unique
+    (thousands of numbers are shared by 2+ records), so Edit/Restore show these
+    as a pick-list when there's more than one instead of assuming a single row."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT r.ID, r.LibraryNumber, r.Artist, r.Title,
+               mt.Media, s.Status AS StatusName,
+               CONCAT(mt.Media, '-', r.LibraryNumber) AS CallNumber
+        FROM RecordLibrary r
+        JOIN MediaType mt ON r.MediaType = mt.ID
+        LEFT JOIN `Status` s ON r.Status = s.ID
+        WHERE r.MediaType = %s AND r.LibraryNumber = %s
+    """ + (" AND r.Status = 5" if deleted_only else "") + """
+        ORDER BY r.Artist, r.Title
+        LIMIT 200
+    """, (media_type, library_number))
+    rows = cursor.fetchall()
+    cursor.close()
+    db.close()
+    return rows
+
 @app.context_processor
 def inject_status_bar():
     try:
@@ -593,6 +616,7 @@ def restore():
     search_library_number = request.form.get("search_library_number", "").strip()
     search_artist         = request.form.get("search_artist", "").strip()
     artist_matches        = []
+    matches_for           = search_artist
 
     if request.method == "POST":
         action = request.form.get("action", "")
@@ -614,18 +638,14 @@ def restore():
                     message = f"No Deleted records found for an artist matching '{search_artist}'."
                     message_type = "error"
             elif search_media_type and search_library_number:
-                db = get_db()
-                cursor = db.cursor(dictionary=True)
-                cursor.execute("""
-                    SELECT ID, LibraryNumber, MediaType, Status, Artist, Title,
-                           Label, Genre, Style, ReleaseDate, ReleaseYear, Comments, Section
-                    FROM RecordLibrary
-                    WHERE MediaType = %s AND LibraryNumber = %s AND Status = 5
-                """, (search_media_type, search_library_number))
-                record = cursor.fetchone()
-                cursor.close()
-                db.close()
-                if not record:
+                number_matches = fetch_matches_by_number(
+                    search_media_type, search_library_number, deleted_only=True)
+                if len(number_matches) == 1:
+                    record = fetch_record_by_id(number_matches[0]["ID"])
+                elif number_matches:
+                    artist_matches = number_matches
+                    matches_for = number_matches[0]["CallNumber"]
+                else:
                     message = f"No Deleted record found for library number {search_library_number}."
                     message_type = "error"
             else:
@@ -667,7 +687,7 @@ def restore():
                            search_media_type=search_media_type,
                            search_library_number=search_library_number,
                            search_artist=search_artist, artist_matches=artist_matches,
-                           dm_media_id=dm_media_id)
+                           matches_for=matches_for, dm_media_id=dm_media_id)
 
 
 # ── Edit / Delete ─────────────────────────────────────────────────────────────
@@ -686,6 +706,7 @@ def edit():
     search_library_number  = request.form.get("search_library_number", "").strip()
     search_artist          = request.form.get("search_artist", "").strip()
     artist_matches         = []
+    matches_for            = search_artist
 
     if request.method == "POST":
         action = request.form.get("action", "")
@@ -708,18 +729,13 @@ def edit():
                     message = f"No records found for an artist matching '{search_artist}'."
                     message_type = "error"
             elif search_media_type and search_library_number:
-                db = get_db()
-                cursor = db.cursor(dictionary=True)
-                cursor.execute("""
-                    SELECT ID, LibraryNumber, MediaType, Status, Artist, Title,
-                           Label, Genre, Style, ReleaseDate, ReleaseYear, Comments, Section
-                    FROM RecordLibrary
-                    WHERE MediaType = %s AND LibraryNumber = %s
-                """, (search_media_type, search_library_number))
-                record = cursor.fetchone()
-                cursor.close()
-                db.close()
-                if not record:
+                number_matches = fetch_matches_by_number(search_media_type, search_library_number)
+                if len(number_matches) == 1:
+                    record = fetch_record_by_id(number_matches[0]["ID"])
+                elif number_matches:
+                    artist_matches = number_matches
+                    matches_for = number_matches[0]["CallNumber"]
+                else:
                     message = f"No record found for library number {search_library_number}."
                     message_type = "error"
             else:
@@ -791,7 +807,7 @@ def edit():
                            search_media_type=search_media_type,
                            search_library_number=search_library_number,
                            search_artist=search_artist, artist_matches=artist_matches,
-                           dm_media_id=dm_media_id)
+                           matches_for=matches_for, dm_media_id=dm_media_id)
 
 
 # ── Bulk Edit by Artist ────────────────────────────────────────────────────────

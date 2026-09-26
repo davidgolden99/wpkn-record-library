@@ -8,6 +8,9 @@ All notable changes to this project are documented here.
 - **Restore Deleted** screen can now correct **Label**, **Genre**, and **Release Year** while restoring. They're saved in the same UPDATE that sets `Status = 1`, and everything else stays read-only. Genre uses the same dropdown as Edit. A Deleted record whose Genre isn't in the `Genre` table (216 of them on local dev) keeps that value as a selected "(not in Genre list)" option, so restoring it doesn't silently blank the Genre.
 - **MediaType DV retired.** WPKN has no DV items and won't be adding any. DV no longer appears in the Add Record, Edit, Restore, or New Releases dropdowns (`get_media_types()` filters it out). The `MediaType` row itself is kept on purpose: every read query INNER JOINs to it, and deleting it would make the 109 legacy DV records vanish from Edit/Restore lookups too. `edit.html` shows a selected "DV (legacy)" option for those records, so saving an unrelated field can't silently switch them to CD. `restore.html`'s read-only Media Type box shows "DV" for them instead of going blank.
 
+### Fixed
+- **Edit and Restore crashed ("Unread result found" → error page) when a Library Number is shared by more than one record.** LibraryNumber isn't unique: 6,867 MediaType + LibraryNumber pairs have 2+ records (1,617 among Deleted records alone), and the by-number lookup assumed exactly one row. The bug was in Edit since before v1.3 and in Restore since v1.3. Now, if a number matches exactly one record, it opens directly as before. If it matches several, you get the same pick-list the Artist lookup uses (e.g. "2 Deleted record(s) matching CD-70041"). New `fetch_matches_by_number()` in `app.py`.
+
 ### Data
 - `migration/v1.4.1_retire_dv.sql`: `UPDATE RecordLibrary SET Status = 5 WHERE MediaType = 3;` (the 109 DV records → Deleted). Run by hand on prod with this deploy. It's idempotent, and a no-op on local dev, where all 109 were already Deleted.
 

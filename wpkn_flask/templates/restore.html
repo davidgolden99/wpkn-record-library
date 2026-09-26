@@ -76,7 +76,7 @@
 
         {% if artist_matches %}
         <div class="lookup-results">
-            <p>{{ artist_matches|length }} Deleted record(s) matching &ldquo;{{ search_artist }}&rdquo;{% if artist_matches|length == 200 %} (showing first 200 — narrow your search){% endif %} — pick one to restore:</p>
+            <p>{{ artist_matches|length }} Deleted record(s) matching &ldquo;{{ matches_for }}&rdquo;{% if artist_matches|length == 200 %} (showing first 200 — narrow your search){% endif %} — pick one to restore:</p>
             <table>
                 <thead>
                     <tr>
