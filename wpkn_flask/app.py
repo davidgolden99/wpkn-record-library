@@ -653,33 +653,49 @@ def restore():
                 message_type = "error"
 
         elif action == "restore":
-            record_id = request.form.get("record_id")
-            try:
-                db = get_db()
-                cursor = db.cursor()
-                cursor.execute("""
-                    UPDATE RecordLibrary SET
-                        Status = 1, Label = %s, Genre = %s, ReleaseYear = %s
-                    WHERE ID = %s AND Status = 5
-                """, (
-                    request.form.get("label", "").strip()  or None,
-                    request.form.get("genre")              or None,
-                    request.form.get("release_year")       or None,
-                    record_id
-                ))
-                db.commit()
-                restored = cursor.rowcount == 1
-                cursor.close()
-                db.close()
-                if restored:
-                    message = "Record restored to Available."
-                    message_type = "success"
-                else:
-                    message = "That record is no longer Deleted — nothing was changed."
-                    message_type = "error"
-            except Exception as e:
-                message = f"Error: {e}"
+            record_id    = request.form.get("record_id")
+            label        = request.form.get("label", "").strip() or None
+            genre        = request.form.get("genre", "").strip()
+            release_year = request.form.get("release_year") or None
+            current      = fetch_record_by_id(record_id)
+            if not current or current["Status"] != 5:
+                message = "That record is no longer Deleted — nothing was changed."
                 message_type = "error"
+            elif genre not in genres:
+                # Genre is required on restore: restores are picked by someone
+                # who knows the music, so every restored record should come back
+                # with an approved Genre. Keep what they typed and re-show.
+                record = dict(current, Label=label, ReleaseYear=release_year)
+                message = "Choose a Genre from the list before restoring."
+                message_type = "error"
+            else:
+                # An off-list legacy Genre (e.g. "Texas Swing, Jazz") is being
+                # replaced — keep its text in Style rather than losing it.
+                style = current["Style"]
+                old_genre = (current["Genre"] or "").strip()
+                if old_genre and old_genre not in genres:
+                    style = f"{style.strip()}; {old_genre}" if (style or "").strip() else old_genre
+                try:
+                    db = get_db()
+                    cursor = db.cursor()
+                    cursor.execute("""
+                        UPDATE RecordLibrary SET
+                            Status = 1, Label = %s, Genre = %s, ReleaseYear = %s, Style = %s
+                        WHERE ID = %s AND Status = 5
+                    """, (label, genre, release_year, style, record_id))
+                    db.commit()
+                    restored = cursor.rowcount == 1
+                    cursor.close()
+                    db.close()
+                    if restored:
+                        message = "Record restored to Available."
+                        message_type = "success"
+                    else:
+                        message = "That record is no longer Deleted — nothing was changed."
+                        message_type = "error"
+                except Exception as e:
+                    message = f"Error: {e}"
+                    message_type = "error"
 
     return render_template("restore.html",
                            genres=genres, media_types=media_types, record=record,

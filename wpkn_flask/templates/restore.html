@@ -36,7 +36,7 @@
     </header>
     <main>
         <h2>Restore Deleted Record</h2>
-        <p>Find a record marked <strong>Deleted</strong> and change it back to <strong>Available</strong>. Label, Genre, and Release Year can be corrected at the same time; everything else is read-only here — use Edit Record for that.</p>
+        <p>Find a record marked <strong>Deleted</strong> and change it back to <strong>Available</strong>. A Genre from the list is required. Label and Release Year can be corrected at the same time; everything else is read-only here — use Edit Record for that.</p>
 
         {% if message %}
         <div class="entry-message {{ message_type }}">{{ message }}</div>
@@ -149,20 +149,19 @@
                            value="{{ record.Label or '' }}" autocomplete="off">
                 </div>
                 <div class="field">
-                    <label for="genre">Genre</label>
-                    <select id="genre" name="genre">
-                        <option value="">(None)</option>
+                    <label for="genre">Genre <span class="required">*</span></label>
+                    <select id="genre" name="genre" required>
+                        <option value="">(Select a genre)</option>
                         {% for g in genres %}
                         <option value="{{ g }}"
                             {% if record.Genre == g %}selected{% endif %}>
                             {{ g }}
                         </option>
                         {% endfor %}
-                        {# Keep an off-list legacy Genre instead of silently blanking it on restore. #}
-                        {% if record.Genre and record.Genre not in genres %}
-                        <option value="{{ record.Genre }}" selected>{{ record.Genre }} (not in Genre list)</option>
-                        {% endif %}
                     </select>
+                    {% if record.Genre and record.Genre not in genres %}
+                    <small>Current: &ldquo;{{ record.Genre }}&rdquo; (not in Genre list) — will be copied to Style on restore.</small>
+                    {% endif %}
                 </div>
             </div>
             <div class="entry-row">
