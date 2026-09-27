@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here.
 
+## Versioning
+
+Version numbers are **major.minor.patch** (e.g. v1.4.1). The number goes up by the size of the change, not by how much work it took.
+
+| Bump | When | Examples |
+|---|---|---|
+| **Patch** (v1.4.**1**) | Bug fixes only. Nothing new to learn and nothing to run beyond `deploy.sh` (plus a one-off data fix, if needed). | v1.4.1's fix for Edit/Restore crashing on shared Library Numbers |
+| **Minor** (v1.**5**) | New features or pages that add to what's already there. Existing users, data, and workflows keep working unchanged. New tables, columns, or roles are fine if nothing existing breaks. | New Releases (v1.4), Restore Deleted + Restore role (v1.3), genre review pages (v1.5) |
+| **Major** (v**2**.0) | A change that breaks something people or processes depend on. | See below |
+
+A **major** version is warranted when any of these is true:
+
+1. **Existing users have to change how they work.** For example, replacing the shared `Entry` login with per-user accounts, or removing or merging roles.
+2. **The data model changes in a way that isn't just an addition.** For example, making `RecordLibrary.Genre` a true foreign key to the `Genre` table (today it's free text, and the `Genre` table only feeds the dropdowns), or restructuring call numbers. That would break existing scripts, saved queries, and reports.
+3. **Deploying or running the app changes.** For example, a new server, a new Python/Flask generation, a different database account setup, or a deploy that needs more than `deploy.sh` plus a SQL file. The access and emergency instructions would need rewriting.
+4. **Something people rely on is removed or reworked enough to relearn.** For example, dropping a page, or redesigning public Search.
+5. **A deliberate milestone.** For example, a combined release marking the end of the catalog cleanup. This is a judgment call.
+
+How releases are recorded:
+
+- Each release gets a `## [vX.Y.Z] - YYYY-MM-DD` section here, dated the day it's deployed to production.
+- Work in progress sits under `- unreleased` until then.
+- `APP_VERSION` in `wpkn_flask/app.py` (shown in the status bar) is bumped by hand to match.
+- The release commit gets an annotated git tag (`git tag -a vX.Y.Z`).
+
 ## [v1.5] - unreleased
 
 ### Added
