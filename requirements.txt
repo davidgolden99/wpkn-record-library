@@ -1,0 +1,10 @@
+# Python packages wpkn_flask/app.py imports. Versions are the ones the app
+# runs with on the Mac for local dev (2026-10-04). Install with:
+#   python3 -m pip install -r requirements.txt
+# deploy.sh does not install from this file; prod uses its existing venv at
+# /opt/wpkn_library/.venv.
+Flask==3.1.3
+Flask-Login==0.6.3
+Werkzeug==3.1.8
+mysql-connector-python==9.4.0
+python-dotenv==1.2.1
