@@ -35,5 +35,20 @@ CREATE TABLE IF NOT EXISTS genre_staging (
     CONSTRAINT fk_gs_record FOREIGN KEY (record_id) REFERENCES RecordLibrary (ID)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 3. notes_cleared_by / notes_cleared_at came after the table was first
+--    created, so CREATE TABLE IF NOT EXISTS above skips them on a database
+--    that already has genre_staging. MySQL has no ADD COLUMN IF NOT EXISTS,
+--    so check information_schema and only ALTER when the columns are missing.
+SET @has_cleared = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'genre_staging'
+                      AND COLUMN_NAME = 'notes_cleared_at');
+SET @sql = IF(@has_cleared = 0,
+    'ALTER TABLE genre_staging ADD COLUMN notes_cleared_by VARCHAR(50) AFTER reviewed_at,
+                               ADD COLUMN notes_cleared_at DATETIME AFTER notes_cleared_by',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SHOW CREATE TABLE Users;
 SELECT COUNT(*) AS genre_staging_rows FROM genre_staging;

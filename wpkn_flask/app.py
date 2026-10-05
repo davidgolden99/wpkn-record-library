@@ -1013,6 +1013,7 @@ def genre_review():
         cursor = db.cursor(dictionary=True)
         try:
             cleared = 0
+            record_ids = []
             if action == "clear_notes":
                 # Marks notes as handled; the note text stays as part of the
                 # audit log, it just drops out of the Has notes list.
@@ -1083,8 +1084,12 @@ def genre_review():
             if cleared:  parts.append(f"{cleared} note(s) cleared")
             if parts:
                 message = ", ".join(parts).capitalize() + "."
-            elif action == "clear_notes":
+            elif action == "clear_notes" and not record_ids:
                 message = "No notes were cleared — tick at least one row first."
+            elif action == "clear_notes":
+                # Ticked rows were already cleared (double-submit, or another
+                # Librarian got there first from an older copy of the page).
+                message = "Those notes were already cleared."
             elif action in ("approve", "reject"):
                 message = "That suggestion isn't waiting for review any more — it was already reviewed or changed."
             else:
