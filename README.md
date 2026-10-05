@@ -19,16 +19,18 @@ login; Data Entry, Librarian, and Administrator roles require authentication
 ## Running locally
 
 ```bash
+python3 -m pip install -r requirements.txt   # once
 cd wpkn_flask
 python3 app.py
 # http://127.0.0.1:5000
 ```
 
 Requires a local MySQL instance with the `wpkn_library` schema loaded (see
-`migration/clean_recordlibrary.py` for how the source data was prepared, and
-`wpkn_flask/db_env_vars_readme.txt` for the environment variables the app
-expects). Connection credentials are read from `WPKN_DB_*` env vars — there
-are no working credentials in this repo.
+`migration/clean_recordlibrary.py` for how the source data was prepared).
+Connection credentials are read from `WPKN_DB_*` env vars, or from a
+git-ignored `wpkn_flask/.env` file; there are no working credentials in this
+repo. Without them the app tries the prod `wpkn_app` account, which doesn't
+exist locally. See `wpkn_flask/db_env_vars_readme.txt` for the `.env` setup.
 
 ## Deploying
 
