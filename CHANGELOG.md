@@ -27,7 +27,7 @@ How releases are recorded:
 - `APP_VERSION` in `wpkn_flask/app.py` (shown in the status bar) is bumped by hand to match.
 - The release commit gets an annotated git tag (`git tag -a vX.Y.Z`).
 
-## [v1.5] - unreleased
+## [v1.5] - 2026-10-04
 
 ### Added
 - **Genre review, built into the app instead of NocoDB.** This is Phase 3b of the data cleansing plan.
