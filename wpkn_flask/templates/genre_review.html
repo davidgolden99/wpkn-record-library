@@ -50,6 +50,7 @@
                     <th>Approved</th>
                     <th>Rejected</th>
                     <th>Skipped</th>
+                    <th>Has notes</th>
                     <th></th>
                 </tr>
             </thead>
@@ -63,7 +64,8 @@
                     <td>{{ v.approved }}</td>
                     <td>{{ v.rejected }}</td>
                     <td>{{ v.skipped }}</td>
-                    <td><a href="/genres/review?volunteer={{ v.assigned_to|urlencode }}">Show only</a></td>
+                    <td>{% if v.has_notes %}<a href="/genres/review?volunteer={{ v.assigned_to|urlencode }}&amp;notes=1">{{ v.has_notes }}</a>{% else %}0{% endif %}</td>
+                    <td><a href="/genres/review?volunteer={{ v.assigned_to|urlencode }}">This volunteer only</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -72,7 +74,55 @@
         <p>No batches have been assigned yet (see <code>migration/assign_genre_batch.sql</code>).</p>
         {% endif %}
 
-        {% if proposals %}
+        {% if show_notes %}
+        <h2>{{ noted|length }} reviewed row(s) with notes{% if volunteer %} from {{ volunteer }}{% endif %}{% if noted|length == 500 %} (first 500){% endif %}
+            <a href="/genres/review{% if volunteer %}?volunteer={{ volunteer|urlencode }}{% endif %}" class="secondary-btn-link">Back to review</a></h2>
+        <p>Approving writes only the genre. If a note gives a Style, Label or year, copy it into the record with <strong>Edit Record</strong> (search by Library Number) or <strong>Bulk Edit</strong>.</p>
+        {% if noted %}
+        <p>Once a note is dealt with, tick it and click <strong>Clear selected notes</strong> to take it off this list. The note itself is kept in the review history.</p>
+        <form method="POST" action="/genres/review?notes=1"
+              onsubmit="return confirm('Clear the selected notes from this list?');">
+        <input type="hidden" name="action" value="clear_notes">
+        <input type="hidden" name="volunteer" value="{{ volunteer }}">
+        <button type="submit" class="primary-btn">Clear selected notes</button>
+        <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="select-all-notes" aria-label="Select all"
+                               onchange="document.querySelectorAll('.note-check').forEach(function (c) { c.checked = this.checked; }, this);"></th>
+                    <th>Volunteer</th>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th>Library #</th>
+                    <th>Result</th>
+                    <th>Notes</th>
+                    <th>Style now</th>
+                    <th>Label now</th>
+                    <th>Year now</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in noted %}
+                <tr>
+                    <td><input type="checkbox" name="record_id" value="{{ n.record_id }}" class="note-check" aria-label="Select {{ n.artist }} — {{ n.title }}"></td>
+                    <td>{{ n.assigned_to }}</td>
+                    <td>{{ n.artist }}</td>
+                    <td>{{ n.title }}</td>
+                    <td>{{ n.media }}-{{ n.LibraryNumber or '' }}</td>
+                    <td>{{ n.status|capitalize }}{% if n.final_genre %}: {{ n.final_genre }}{% endif %}</td>
+                    <td>{{ n.notes }}</td>
+                    <td>{{ n.Style or '' }}</td>
+                    <td>{{ n.Label or '' }}</td>
+                    <td>{{ n.ReleaseYear or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        </form>
+        {% endif %}
+        {% elif proposals %}
         <h2>{{ proposals|length }} suggestion(s) to review{% if volunteer %} from {{ volunteer }} <a href="/genres/review" class="secondary-btn-link">Show all</a>{% endif %}{% if proposals|length == 500 %} (first 500){% endif %}</h2>
 
         <form method="POST" action="/genres/review"

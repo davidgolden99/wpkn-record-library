@@ -1003,6 +1003,7 @@ def genres_save():
 def genre_review():
     genre_list = get_genres()
     volunteer  = request.values.get("volunteer", "").strip()
+    show_notes = request.args.get("notes") == "1"
     message = None
     message_type = None
 
@@ -1011,7 +1012,21 @@ def genre_review():
         db = get_db()
         cursor = db.cursor(dictionary=True)
         try:
-            if action in ("approve", "reject"):
+            cleared = 0
+            if action == "clear_notes":
+                # Marks notes as handled; the note text stays as part of the
+                # audit log, it just drops out of the Has notes list.
+                record_ids = [i for i in request.form.getlist("record_id") if i.isdigit()]
+                if record_ids:
+                    cursor.execute("""
+                        UPDATE genre_staging SET notes_cleared_by = %s, notes_cleared_at = NOW()
+                        WHERE record_id IN (""" + ", ".join(["%s"] * len(record_ids)) + """)
+                          AND status IN ('approved', 'rejected', 'skipped')
+                          AND notes_cleared_at IS NULL
+                    """, (current_user.username, *record_ids))
+                    cleared = cursor.rowcount
+                targets = []
+            elif action in ("approve", "reject"):
                 targets = [(request.form.get("record_id"), request.form.get("final_genre", "").strip())]
             elif action == "approve_high":
                 cursor.execute("""
@@ -1065,8 +1080,11 @@ def genre_review():
             if approved: parts.append(f"{approved} approved")
             if rejected: parts.append(f"{rejected} rejected")
             if skipped:  parts.append(f"{skipped} skipped (record already had a genre)")
+            if cleared:  parts.append(f"{cleared} note(s) cleared")
             if parts:
                 message = ", ".join(parts).capitalize() + "."
+            elif action == "clear_notes":
+                message = "No notes were cleared — tick at least one row first."
             elif action in ("approve", "reject"):
                 message = "That suggestion isn't waiting for review any more — it was already reviewed or changed."
             else:
@@ -1089,10 +1107,32 @@ def genre_review():
                SUM(status = 'proposed')   AS proposed,
                SUM(status = 'approved')   AS approved,
                SUM(status = 'rejected')   AS rejected,
-               SUM(status = 'skipped')    AS skipped
+               SUM(status = 'skipped')    AS skipped,
+               SUM(status IN ('approved', 'rejected', 'skipped')
+                   AND notes IS NOT NULL AND notes <> ''
+                   AND notes_cleared_at IS NULL)     AS has_notes
         FROM genre_staging GROUP BY assigned_to ORDER BY assigned_to
     """)
     summary = cursor.fetchall()
+    # Approving writes only Genre, so a Style / Label / year a volunteer typed
+    # in Notes has to be copied over by hand. This lists the reviewed rows
+    # that still have notes, beside what the record holds now.
+    noted = []
+    if show_notes:
+        cursor.execute("""
+            SELECT s.record_id, s.artist, s.title, s.media, s.assigned_to,
+                   s.status, s.final_genre, s.notes,
+                   r.LibraryNumber, r.Style, r.Label, r.ReleaseYear
+            FROM genre_staging s
+            JOIN RecordLibrary r ON r.ID = s.record_id
+            WHERE s.status IN ('approved', 'rejected', 'skipped')
+              AND s.notes IS NOT NULL AND s.notes <> ''
+              AND s.notes_cleared_at IS NULL
+        """ + (" AND s.assigned_to = %s" if volunteer else "") + """
+            ORDER BY s.assigned_to, s.artist, s.title, s.record_id
+            LIMIT 500
+        """, (volunteer,) if volunteer else ())
+        noted = cursor.fetchall()
     cursor.execute("""
         SELECT record_id, artist, title, label, year, media, assigned_to,
                proposed_genre, confidence, notes, edited_at
@@ -1109,6 +1149,7 @@ def genre_review():
         row["lookup_url"] = discogs_search_url(row["artist"], row["title"])
     return render_template("genre_review.html", summary=summary, proposals=proposals,
                            volunteer=volunteer, genres=genre_list,
+                           show_notes=show_notes, noted=noted,
                            message=message, message_type=message_type)
 
 

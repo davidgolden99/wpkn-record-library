@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS genre_staging (
     final_genre    VARCHAR(50),
     reviewed_by    VARCHAR(50),
     reviewed_at    DATETIME,
+    notes_cleared_by VARCHAR(50),   -- Librarian marked the note as dealt with;
+    notes_cleared_at DATETIME,      -- the note text itself is never erased
     KEY idx_gs_assigned (assigned_to, status),
     KEY idx_gs_status (status),
     CONSTRAINT fk_gs_record FOREIGN KEY (record_id) REFERENCES RecordLibrary (ID)
