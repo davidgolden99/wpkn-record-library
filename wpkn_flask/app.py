@@ -1004,6 +1004,7 @@ def genre_review():
     genre_list = get_genres()
     volunteer  = request.values.get("volunteer", "").strip()
     show_notes = request.args.get("notes") == "1"
+    show_open  = request.args.get("open") == "1"
     message = None
     message_type = None
 
@@ -1138,6 +1139,20 @@ def genre_review():
             LIMIT 500
         """, (volunteer,) if volunteer else ())
         noted = cursor.fetchall()
+    # Rows a volunteer hasn't proposed a genre for yet. A note without a genre
+    # still counts as open, so the note shows which ones they started.
+    open_rows = []
+    if show_open:
+        cursor.execute("""
+            SELECT record_id, artist, title, label, year, media, assigned_to,
+                   notes, assigned_at
+            FROM genre_staging
+            WHERE status = 'open'
+        """ + (" AND assigned_to = %s" if volunteer else "") + """
+            ORDER BY assigned_to, artist, title, record_id
+            LIMIT 500
+        """, (volunteer,) if volunteer else ())
+        open_rows = cursor.fetchall()
     cursor.execute("""
         SELECT record_id, artist, title, label, year, media, assigned_to,
                proposed_genre, confidence, notes, edited_at
@@ -1150,11 +1165,12 @@ def genre_review():
     proposals = cursor.fetchall()
     cursor.close()
     db.close()
-    for row in proposals:
+    for row in proposals + open_rows:
         row["lookup_url"] = discogs_search_url(row["artist"], row["title"])
     return render_template("genre_review.html", summary=summary, proposals=proposals,
                            volunteer=volunteer, genres=genre_list,
                            show_notes=show_notes, noted=noted,
+                           show_open=show_open, open_rows=open_rows,
                            message=message, message_type=message_type)
 
 

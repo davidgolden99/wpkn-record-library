@@ -59,7 +59,7 @@
                 <tr>
                     <td>{{ v.assigned_to }}</td>
                     <td>{{ v.total }}</td>
-                    <td>{{ v.open_rows }}</td>
+                    <td>{% if v.open_rows %}<a href="/genres/review?volunteer={{ v.assigned_to|urlencode }}&amp;open=1">{{ v.open_rows }}</a>{% else %}0{% endif %}</td>
                     <td>{{ v.proposed }}</td>
                     <td>{{ v.approved }}</td>
                     <td>{{ v.rejected }}</td>
@@ -121,6 +121,42 @@
         </table>
         </div>
         </form>
+        {% endif %}
+        {% elif show_open %}
+        <h2>{{ open_rows|length }} open row(s){% if volunteer %} from {{ volunteer }}{% endif %}{% if open_rows|length == 500 %} (first 500){% endif %}
+            <a href="/genres/review{% if volunteer %}?volunteer={{ volunteer|urlencode }}{% endif %}" class="secondary-btn-link">Back to review</a></h2>
+        {% if open_rows %}
+        <p>Records assigned but with no genre suggested yet. A row with a note was started but not finished.</p>
+        <div class="table-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Volunteer</th>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th>Label</th>
+                    <th>Year</th>
+                    <th>Media</th>
+                    <th>Notes</th>
+                    <th>Assigned</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in open_rows %}
+                <tr>
+                    <td>{{ o.assigned_to }}</td>
+                    <td>{{ o.artist }}</td>
+                    <td>{{ o.title }} <a href="{{ o.lookup_url }}" target="_blank" rel="noopener">(look up)</a></td>
+                    <td>{{ o.label or '' }}</td>
+                    <td>{{ o.year or '' }}</td>
+                    <td>{{ o.media or '' }}</td>
+                    <td>{{ o.notes or '' }}</td>
+                    <td>{{ o.assigned_at.strftime('%Y-%m-%d') if o.assigned_at else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
         {% endif %}
         {% elif proposals %}
         <h2>{{ proposals|length }} suggestion(s) to review{% if volunteer %} from {{ volunteer }} <a href="/genres/review" class="secondary-btn-link">Show all</a>{% endif %}{% if proposals|length == 500 %} (first 500){% endif %}</h2>
